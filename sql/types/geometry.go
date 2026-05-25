@@ -97,20 +97,22 @@ func (bg BaseGeometry) BBox() (float64, float64, float64, float64) {
 
 func (bg BaseGeometry) implementsGeometryValue() {}
 
-func (bg BaseGeometry) Serialize() []byte {
-	buf := allocateGeoTypeBuffer(bg.Geometry.NumPoints(), 1, 0)
+func (bg BaseGeometry) Serialize() (buf []byte) {
+	wkb := bg.Geometry.ToWKB()
+	totalSize := 4 + len(wkb)
+	buf = make([]byte, totalSize)
 	bg.WriteData(buf)
+
+	encodedStr := hex.EncodeToString(buf)
+	fmt.Println(encodedStr)
 	return buf
 }
 
 func (bg BaseGeometry) WriteData(buf []byte) int {
-	if bg.Geometry == nil || len(buf) < 4 {
-		return 0
-	}
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(bg.Geometry.SRID()))
 
-	wkbBytes := bg.Geometry.ToWKB()
-	bytesCopied := copy(buf[4:], wkbBytes)
+	wkb := bg.Geometry.ToWKB()
+	bytesCopied := copy(buf[4:], wkb)
 	return 4 + bytesCopied
 }
 
@@ -288,10 +290,6 @@ func DeserializeGeomColl(buf []byte, isBig bool, srid uint32) (GeomColl, int, er
 		return GeomColl{}, 0, sql.ErrInvalidGISData.New("DeserializeGeomColl")
 	}
 	return GeomColl{BaseGeometry{Geometry: geom}}, CountSize + PointSize*geom.NumPoints(), nil
-}
-
-func allocateGeoTypeBuffer(numPoints, numCounts, numWKBHeaders int) []byte {
-	return make([]byte, EWKBHeaderSize+PointSize*numPoints+CountSize*numCounts+numWKBHeaders*WKBHeaderSize)
 }
 
 // WriteEWKBHeader will write EWKB header to the given buffer

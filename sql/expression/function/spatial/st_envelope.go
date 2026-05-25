@@ -92,5 +92,5 @@ func (e *Envelope) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidArgument.New(e.FunctionName())
 	}
 
-	return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: gv.GetGeometry().Envelope()}}, nil
+	return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: gv.GetGeometry().Bounds().Geom().SetSRID(gv.GetGeometry().SRID())}}, nil
 }
