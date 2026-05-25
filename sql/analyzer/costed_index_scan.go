@@ -24,6 +24,7 @@ import (
 
 	"github.com/cockroachdb/apd/v3"
 	"github.com/dolthub/vitess/go/sqltypes"
+	"github.com/twpayne/go-geos"
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
@@ -1228,9 +1229,15 @@ func (b *indexScanRangeBuilder) rangeBuildSpatialLeaf(f *iScanLeaf, inScan bool)
 	if !ok {
 		return nil, sql.ErrInvalidGISData.New()
 	}
+
+	geosContext := geos.NewContext()
 	minX, minY, maxX, maxY := g.BBox()
-	lower := types.Point{X: minX, Y: minY}
-	upper := types.Point{X: maxX, Y: maxY}
+
+	lowerGeom := geosContext.NewPoint([]float64{minX, minY})
+	lower := types.Point{BaseGeometry: types.BaseGeometry{Geometry: lowerGeom}}
+
+	upperGeom := geosContext.NewPoint([]float64{maxX, maxY})
+	upper := types.Point{BaseGeometry: types.BaseGeometry{Geometry: upperGeom}}
 
 	typ := f.typ
 	return sql.MySQLRangeCollection{{{

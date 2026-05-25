@@ -91,21 +91,11 @@ func (p *Perimeter) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	if err != nil {
 		return nil, sql.ErrInvalidArgument.New(p.FunctionName())
 	}
+
 	poly, ok := gv.(types.Polygon)
 	if !ok {
 		return nil, sql.ErrInvalidArgument.New(p.FunctionName())
 	}
 
-	// TODO: if SRID is not 0, find geodetic distance
-	// If just one argument, return length
-	if len(p.ChildExpressions) == 1 {
-		var perimeter float64
-		for _, l := range poly.Lines {
-			perimeter += calculateLength(l)
-		}
-		return perimeter, nil
-	}
-
-	// TODO: support perimeter along spheroid
-	return nil, sql.ErrUnsupportedFeature.New("st_perimeter on spheroid")
+	return poly.Geometry.Length(), nil
 }

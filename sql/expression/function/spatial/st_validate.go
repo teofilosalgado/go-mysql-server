@@ -73,66 +73,6 @@ func (v *Validate) WithChildren(ctx *sql.Context, children ...sql.Expression) (s
 	return NewValidate(ctx, children[0]), nil
 }
 
-// isValidGeometry checks if a geometry is valid according to basic OGC rules.
-func isValidGeometry(gv types.GeometryValue) bool {
-	switch v := gv.(type) {
-	case types.Point:
-		return true
-
-	case types.LineString:
-		// A linestring must have at least 2 points
-		return len(v.Points) >= 2
-
-	case types.Polygon:
-		if len(v.Lines) == 0 {
-			return false
-		}
-		for _, ring := range v.Lines {
-			// Each ring must have at least 4 points (3 distinct + closing)
-			if len(ring.Points) < 4 {
-				return false
-			}
-			// Ring must be closed
-			first := ring.Points[0]
-			last := ring.Points[len(ring.Points)-1]
-			if first.X != last.X || first.Y != last.Y {
-				return false
-			}
-		}
-		return true
-
-	case types.MultiPoint:
-		return true
-
-	case types.MultiLineString:
-		for _, line := range v.Lines {
-			if len(line.Points) < 2 {
-				return false
-			}
-		}
-		return true
-
-	case types.MultiPolygon:
-		for _, poly := range v.Polygons {
-			if !isValidGeometry(poly) {
-				return false
-			}
-		}
-		return true
-
-	case types.GeomColl:
-		for _, geom := range v.Geoms {
-			if !isValidGeometry(geom) {
-				return false
-			}
-		}
-		return true
-
-	default:
-		return false
-	}
-}
-
 // Eval implements the sql.Expression interface.
 func (v *Validate) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	val, err := v.Child.Eval(ctx, row)
@@ -149,7 +89,7 @@ func (v *Validate) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidGISData.New(v.FunctionName())
 	}
 
-	if isValidGeometry(gv) {
+	if gv.GetGeometry().IsValid() {
 		return gv, nil
 	}
 	return nil, nil

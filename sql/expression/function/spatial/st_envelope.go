@@ -76,53 +76,21 @@ func (e *Envelope) WithChildren(ctx *sql.Context, children ...sql.Expression) (s
 
 // Eval implements the sql.Expression interface.
 func (e *Envelope) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	val, err := e.Child.Eval(ctx, row)
+	// Evaluate argument
+	v, err := e.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
 
-	if val == nil {
+	// Return nil if argument is nil
+	if v == nil {
 		return nil, nil
 	}
 
-	gv, err := types.UnwrapGeometry(ctx, val)
+	gv, err := types.UnwrapGeometry(ctx, v)
 	if err != nil {
-		return nil, sql.ErrInvalidGISData.New(e.FunctionName())
+		return nil, sql.ErrInvalidArgument.New(e.FunctionName())
 	}
 
-	srid := gv.GetSRID()
-	minX, minY, maxX, maxY := gv.BBox()
-
-	// Point: bounding box degenerates to a point
-	if minX == maxX && minY == maxY {
-		return types.Point{SRID: srid, X: minX, Y: minY}, nil
-	}
-
-	// Horizontal or vertical line: bounding box degenerates to a linestring
-	if minX == maxX || minY == maxY {
-		return types.LineString{
-			SRID: srid,
-			Points: []types.Point{
-				{SRID: srid, X: minX, Y: minY},
-				{SRID: srid, X: maxX, Y: maxY},
-			},
-		}, nil
-	}
-
-	// General case: return a polygon representing the bounding box
-	return types.Polygon{
-		SRID: srid,
-		Lines: []types.LineString{
-			{
-				SRID: srid,
-				Points: []types.Point{
-					{SRID: srid, X: minX, Y: minY},
-					{SRID: srid, X: maxX, Y: minY},
-					{SRID: srid, X: maxX, Y: maxY},
-					{SRID: srid, X: minX, Y: maxY},
-					{SRID: srid, X: minX, Y: minY},
-				},
-			},
-		},
-	}, nil
+	return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: gv.GetGeometry().Envelope()}}, nil
 }

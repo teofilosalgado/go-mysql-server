@@ -1678,10 +1678,10 @@ func (t *IndexedTable) LookupPartitions(ctx *sql.Context, lookup sql.IndexLookup
 		return spatialRangePartitionIter{
 			child: child.(*partitionIter),
 			ord:   ord,
-			minX:  minPoint.X,
-			minY:  minPoint.Y,
-			maxX:  maxPoint.X,
-			maxY:  maxPoint.Y,
+			minX:  minPoint.Geometry.X(),
+			minY:  minPoint.Geometry.Y(),
+			maxX:  maxPoint.Geometry.X(),
+			maxY:  maxPoint.Geometry.Y(),
 		}, nil
 	}
 

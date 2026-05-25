@@ -67,10 +67,6 @@ func (s *StartPoint) WithChildren(ctx *sql.Context, children ...sql.Expression) 
 	return NewStartPoint(ctx, children[0]), nil
 }
 
-func startPoint(l types.LineString) types.Point {
-	return l.Points[0]
-}
-
 // Eval implements the sql.Expression interface.
 func (s *StartPoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	g, err := s.Child.Eval(ctx, row)
@@ -92,7 +88,7 @@ func (s *StartPoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	return startPoint(l), nil
+	return l.Geometry.Geometry(0), nil
 }
 
 // EndPoint is a function that returns the last point of a LineString
@@ -140,10 +136,6 @@ func (e *EndPoint) WithChildren(ctx *sql.Context, children ...sql.Expression) (s
 	return NewEndPoint(ctx, children[0]), nil
 }
 
-func endPoint(l types.LineString) types.Point {
-	return l.Points[len(l.Points)-1]
-}
-
 // Eval implements the sql.Expression interface.
 func (e *EndPoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	g, err := e.Child.Eval(ctx, row)
@@ -165,7 +157,7 @@ func (e *EndPoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	return endPoint(l), nil
+	return l.Geometry.Geometry(l.Geometry.NumGeometries() - 1), nil
 }
 
 // IsClosed is a function that checks if a LineString or MultiLineString is close
@@ -213,14 +205,6 @@ func (i *IsClosed) WithChildren(ctx *sql.Context, children ...sql.Expression) (s
 	return NewIsClosed(ctx, children[0]), nil
 }
 
-func isPointEqual(a, b types.Point) bool {
-	return a.X == b.X && a.Y == b.Y
-}
-
-func isClosed(l types.LineString) bool {
-	return isPointEqual(startPoint(l), endPoint(l))
-}
-
 // Eval implements the sql.Expression interface.
 func (i *IsClosed) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	g, err := i.Child.Eval(ctx, row)
@@ -239,10 +223,10 @@ func (i *IsClosed) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 
 	switch g := gv.(type) {
 	case types.LineString:
-		return isClosed(g), nil
+		return g.Geometry.IsClosed(), nil
 	case types.MultiLineString:
-		for _, l := range g.Lines {
-			if !isClosed(l) {
+		for n := range g.Geometry.NumGeometries() {
+			if !g.Geometry.Geometry(n).IsClosed() {
 				return false, nil
 			}
 		}

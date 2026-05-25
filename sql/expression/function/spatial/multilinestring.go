@@ -20,6 +20,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 
 	"github.com/dolthub/go-mysql-server/sql"
 )
@@ -95,5 +96,12 @@ func (p *MultiLineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, erro
 		}
 	}
 
-	return types.MultiLineString{Lines: lines}, nil
+	var geometries = make([]*geos.Geom, len(lines))
+	for i, g := range lines {
+		geometries[i] = g.Geometry
+	}
+
+	geosContext := geos.NewContext()
+	geometry := geosContext.NewCollection(geos.TypeIDLineString, geometries)
+	return types.MultiLineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }

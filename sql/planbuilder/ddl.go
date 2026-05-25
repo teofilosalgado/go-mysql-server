@@ -1693,7 +1693,7 @@ func (b *Builder) columnDefinitionToColumn(inScope *scope, cd *ast.ColumnDefinit
 			b.handleErr(err)
 		}
 		if s, ok := internalTyp.(sql.SpatialColumnType); ok {
-			internalTyp = s.SetSRID(uint32(sridVal))
+			internalTyp = s.SetSRID(int(sridVal))
 		} else {
 			b.handleErr(sql.ErrInvalidType.New(fmt.Sprintf("cannot define SRID for %s", internalTyp)))
 		}
@@ -2064,7 +2064,7 @@ func ParseColumnTypeString(ctx context.Context, columnType string) (sql.Type, er
 			return nil, err
 		}
 		if s, ok := typ.(sql.SpatialColumnType); ok {
-			typ = s.SetSRID(uint32(sridVal))
+			typ = s.SetSRID(int(sridVal))
 		} else {
 			return nil, sql.ErrInvalidType.New(fmt.Sprintf("cannot define SRID for %s", typ))
 		}

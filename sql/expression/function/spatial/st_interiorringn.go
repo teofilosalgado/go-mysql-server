@@ -109,18 +109,5 @@ func (i *InteriorRingN) Eval(ctx *sql.Context, row sql.Row) (interface{}, error)
 		return nil, sql.ErrInvalidGISData.New(i.FunctionName())
 	}
 
-	p, ok := gv.(types.Polygon)
-	if !ok {
-		return nil, sql.ErrInvalidArgument.New(i.FunctionName())
-	}
-
-	// Interior rings start at index 1 in p.Lines (index 0 is exterior ring).
-	// N is 1-based, so interior ring N is at p.Lines[N].
-	if idx < 1 || idx >= len(p.Lines) {
-		return nil, nil
-	}
-
-	ring := p.Lines[idx]
-	ring.SRID = p.SRID
-	return ring, nil
+	return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: gv.GetGeometry().InteriorRing(idx)}}, nil
 }

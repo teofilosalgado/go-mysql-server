@@ -1410,7 +1410,7 @@ func stGeometryColumnsRowIter(ctx *Context, cat Catalog) (RowIter, error) {
 				typeName, _ := getDtdIdAndDataType(col.Type)
 
 				if srid, d := s.GetSpatialTypeSRID(); d {
-					srsName = types.SupportedSRIDs[srid].Name
+					srsName = types.SupportedSRIDs[uint32(srid)].Name
 					srsId = srid
 				}
 

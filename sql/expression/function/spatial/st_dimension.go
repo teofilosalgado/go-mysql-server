@@ -20,6 +20,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 )
 
 // Dimension is a function that converts a spatial type into WKT format (alias for AsText)
@@ -72,51 +73,51 @@ func (p *Dimension) WithChildren(ctx *sql.Context, children ...sql.Expression) (
 	return NewDimension(ctx, children[0]), nil
 }
 
-func FindDimension(g types.GeometryValue) interface{} {
-	switch v := g.(type) {
-	case types.Point, types.MultiPoint:
+func FindDimension(bg types.GeometryValue) interface{} {
+	geometryType := bg.GetGeometry().TypeID()
+	switch geometryType {
+	case geos.TypeIDPoint, geos.TypeIDMultiPoint:
 		return 0
-	case types.LineString, types.MultiLineString:
+	case geos.TypeIDLineString, geos.TypeIDMultiLineString:
 		return 1
-	case types.Polygon, types.MultiPolygon:
+	case geos.TypeIDPolygon, geos.TypeIDMultiPolygon:
 		return 2
-	case types.GeomColl:
-		if len(v.Geoms) == 0 {
-			return nil
-		}
-		maxDim := 0
-		for _, geom := range v.Geoms {
-			dim := FindDimension(geom)
-			if dim == nil {
+	case geos.TypeIDGeometryCollection:
+		numGeometries := bg.GetGeometry().NumGeometries()
+		maxDimension := 0
+		for i := range numGeometries {
+			currentGeometry := bg.GetGeometry().Geometry(i)
+			currentGeometryDimension := FindDimension(types.BaseGeometry{Geometry: currentGeometry})
+			if currentGeometryDimension == nil {
 				return nil
 			}
-			if dim.(int) > maxDim {
-				maxDim = dim.(int)
+			if currentGeometryDimension.(int) > maxDimension {
+				maxDimension = currentGeometryDimension.(int)
 			}
 		}
-		return maxDim
 	default:
 		return nil
 	}
+	return nil
 }
 
 // Eval implements the sql.Expression interface.
 func (p *Dimension) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	// Evaluate child
-	val, err := p.Child.Eval(ctx, row)
+	// Evaluate argument
+	v, err := p.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
 
-	// Return nil if geometry is nil
-	if val == nil {
+	// Return nil if argument is nil
+	if v == nil {
 		return nil, nil
 	}
 
-	// Expect one of the geometry types
-	gv, err := types.UnwrapGeometry(ctx, val)
+	gv, err := types.UnwrapGeometry(ctx, v)
 	if err != nil {
-		return nil, sql.ErrInvalidGISData.New("ST_DIMENSION")
+		return nil, sql.ErrInvalidArgument.New(p.FunctionName())
 	}
+
 	return FindDimension(gv), nil
 }

@@ -347,9 +347,9 @@ func IsDecimalType(t Type) bool {
 // SpatialColumnType is a node that contains a reference to all spatial types.
 type SpatialColumnType interface {
 	// GetSpatialTypeSRID returns the SRID value for spatial types.
-	GetSpatialTypeSRID() (uint32, bool)
+	GetSpatialTypeSRID() (int, bool)
 	// SetSRID sets SRID value for spatial types.
-	SetSRID(uint32) Type
+	SetSRID(int) Type
 	// MatchSRID returns nil if column type SRID matches given value SRID otherwise returns error.
 	MatchSRID(interface{}) error
 }

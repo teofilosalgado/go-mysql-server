@@ -85,19 +85,29 @@ func (d *Disjoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	geom2, err := d.RightChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
 
-	g1, g2, err := validateGeomComp(ctx, geom1, geom2, d.FunctionName())
-	if err != nil {
-		return nil, err
+	if geom1 == nil || geom2 == nil {
+		return nil, nil
 	}
+
+	g1, err := types.UnwrapGeometry(ctx, geom1)
+	if err != nil {
+		return nil, sql.ErrInvalidGISData.New(d.FunctionName())
+	}
+
+	g2, err := types.UnwrapGeometry(ctx, geom2)
+	if err != nil {
+		return nil, sql.ErrInvalidGISData.New(d.FunctionName())
+	}
+
 	if g1 == nil || g2 == nil {
 		return nil, nil
 	}
 
-	intersects := isIntersects(g1, g2)
-	return !intersects, nil
+	return g1.GetGeometry().Disjoint(g2.GetGeometry()), nil
 }

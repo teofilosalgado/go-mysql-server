@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/twpayne/go-geos"
 	errors "gopkg.in/src-d/go-errors.v1"
 
 	"github.com/dolthub/go-mysql-server/sql"
@@ -105,11 +106,7 @@ func (s *STX) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 
 	// If just one argument, return X
 	if len(s.ChildExpressions) == 1 {
-		// Backwards for types.GeoSpatialSRID
-		if _p.SRID == types.GeoSpatialSRID {
-			return _p.Y, nil
-		}
-		return _p.X, nil
+		return _p.Geometry.X(), nil
 	}
 
 	// Evaluate second argument
@@ -129,21 +126,12 @@ func (s *STX) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, err
 	}
 
-	// Backwards for types.GeoSpatialSRID
-	if _p.SRID == types.GeoSpatialSRID {
-		return types.Point{
-			SRID: _p.SRID,
-			X:    _p.X,
-			Y:    _x.(float64),
-		}, nil
-	}
-
 	// Create point with new X and old Y
-	return types.Point{
-		SRID: _p.SRID,
-		X:    _x.(float64),
-		Y:    _p.Y,
-	}, nil
+	geosContext := geos.NewContext()
+	result := geosContext.NewPoint([]float64{_x.(float64), _p.Geometry.Y()})
+	result.SetSRID(_p.Geometry.SRID())
+
+	return result, nil
 }
 
 // STY is a function that returns the y value from a given point.
@@ -224,11 +212,7 @@ func (s *STY) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 
 	// If just one argument, return Y
 	if len(s.ChildExpressions) == 1 {
-		// Backwards for types.GeoSpatialSRID
-		if _p.SRID == types.GeoSpatialSRID {
-			return _p.X, nil
-		}
-		return _p.Y, nil
+		return _p.Geometry.Y(), nil
 	}
 
 	// Evaluate second argument
@@ -248,21 +232,12 @@ func (s *STY) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, err
 	}
 
-	// Backwards for types.GeoSpatialSRID
-	if _p.SRID == types.GeoSpatialSRID {
-		return types.Point{
-			SRID: _p.SRID,
-			X:    _y.(float64),
-			Y:    _p.Y,
-		}, nil
-	}
-
 	// Create point with old X and new Ys
-	return types.Point{
-		SRID: _p.SRID,
-		X:    _p.X,
-		Y:    _y.(float64),
-	}, nil
+	geosContext := geos.NewContext()
+	result := geosContext.NewPoint([]float64{_p.Geometry.X(), _y.(float64)})
+	result.SetSRID(_p.Geometry.SRID())
+
+	return result, nil
 }
 
 // Longitude is a function that returns the x value from a given point.
@@ -345,14 +320,9 @@ func (l *Longitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, ErrInvalidType.New(l.FunctionName())
 	}
 
-	// Point needs to have SRID 4326
-	if _p.SRID != types.GeoSpatialSRID {
-		return nil, ErrNonGeographic.New(l.FunctionName(), _p.SRID)
-	}
-
 	// If just one argument, return X
 	if len(l.ChildExpressions) == 1 {
-		return _p.X, nil
+		return _p.Geometry.X(), nil
 	}
 
 	// Evaluate second argument
@@ -379,7 +349,10 @@ func (l *Longitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with new X and old Y
-	return types.Point{SRID: _p.SRID, X: _x, Y: _p.Y}, nil
+	geosContext := geos.NewContext()
+	result := geosContext.NewPoint([]float64{_x, _p.Geometry.X()})
+	result.SetSRID(_p.Geometry.SRID())
+	return result, nil
 }
 
 // Latitude is a function that returns the x value from a given point.
@@ -391,7 +364,7 @@ var _ sql.FunctionExpression = (*Latitude)(nil)
 var _ sql.CollationCoercible = (*Latitude)(nil)
 
 // NewLatitude creates a new ST_LATITUDE expression.
-func NewLatitude(ctx *sql.Context, args ...sql.Expression) (sql.Expression, error) {
+func NewLatitude(args ...sql.Expression) (sql.Expression, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, sql.ErrInvalidArgumentNumber.New("ST_LATITUDE", "1 or 2", len(args))
 	}
@@ -432,7 +405,7 @@ func (l *Latitude) String() string {
 
 // WithChildren implements the Expression interface.
 func (l *Latitude) WithChildren(ctx *sql.Context, children ...sql.Expression) (sql.Expression, error) {
-	return NewLatitude(ctx, children...)
+	return NewLatitude(children...)
 }
 
 // Eval implements the sql.Expression interface.
@@ -458,15 +431,9 @@ func (l *Latitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, ErrInvalidType.New(l.FunctionName())
 	}
 
-	// Point needs to have SRID 4326
-	// TODO: might need to be == Cartesian instead for other SRIDs
-	if _p.SRID != types.GeoSpatialSRID {
-		return nil, ErrNonGeographic.New(l.FunctionName(), _p.SRID)
-	}
-
 	// If just one argument, return Y
 	if len(l.ChildExpressions) == 1 {
-		return _p.Y, nil
+		return _p.Geometry.Y(), nil
 	}
 
 	// Evaluate second argument
@@ -493,5 +460,8 @@ func (l *Latitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with old X and new Y
-	return types.Point{SRID: _p.SRID, X: _p.X, Y: _y}, nil
+	geosContext := geos.NewContext()
+	result := geosContext.NewPoint([]float64{_p.Geometry.X(), _y})
+	result.SetSRID(_p.Geometry.SRID())
+	return result, nil
 }

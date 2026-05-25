@@ -113,25 +113,25 @@ func (g *GeometryN) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	// N is 1-based; out-of-range returns NULL
 	switch v := gv.(type) {
 	case types.GeomColl:
-		if idx < 1 || idx > len(v.Geoms) {
+		if idx < 1 || idx > v.Geometry.NumGeometries() {
 			return nil, nil
 		}
-		return v.Geoms[idx-1], nil
+		return types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}, nil
 	case types.MultiPoint:
-		if idx < 1 || idx > len(v.Points) {
+		if idx < 1 || idx > v.Geometry.NumGeometries() {
 			return nil, nil
 		}
-		return v.Points[idx-1], nil
+		return types.Point{BaseGeometry: types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}}, nil
 	case types.MultiLineString:
-		if idx < 1 || idx > len(v.Lines) {
+		if idx < 1 || idx > v.Geometry.NumGeometries() {
 			return nil, nil
 		}
-		return v.Lines[idx-1], nil
+		return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}}, nil
 	case types.MultiPolygon:
-		if idx < 1 || idx > len(v.Polygons) {
+		if idx < 1 || idx > v.Geometry.NumGeometries() {
 			return nil, nil
 		}
-		return v.Polygons[idx-1], nil
+		return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}}, nil
 	default:
 		// Non-collection types: return NULL per MySQL behavior
 		return nil, nil

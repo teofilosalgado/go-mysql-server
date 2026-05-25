@@ -93,13 +93,13 @@ func (n *NumGeometries) Eval(ctx *sql.Context, row sql.Row) (interface{}, error)
 	// For simple geometry types (Point, LineString, Polygon): return NULL per MySQL behavior
 	switch v := gv.(type) {
 	case types.GeomColl:
-		return len(v.Geoms), nil
+		return v.Geometry.NumGeometries(), nil
 	case types.MultiPoint:
-		return len(v.Points), nil
+		return v.Geometry.NumGeometries(), nil
 	case types.MultiLineString:
-		return len(v.Lines), nil
+		return v.Geometry.NumGeometries(), nil
 	case types.MultiPolygon:
-		return len(v.Polygons), nil
+		return v.Geometry.NumGeometries(), nil
 	default:
 		return nil, nil
 	}

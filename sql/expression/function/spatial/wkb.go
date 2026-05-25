@@ -91,7 +91,7 @@ func (a *AsWKB) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 
 	switch v := val.(type) {
 	case types.GeometryValue:
-		if v.GetSRID() == types.GeoSpatialSRID {
+		if v.GetSRID() == int(types.GeoSpatialSRID) {
 			v = v.Swap()
 		}
 		return v.Serialize()[types.SRIDSize:], nil
