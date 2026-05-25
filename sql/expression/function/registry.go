@@ -176,6 +176,7 @@ var BuiltIns = []sql.Function{
 	sql.Function1{Name: "ltrim", Fn: NewLeftTrim},
 	sql.FunctionN{Name: "make_set", Fn: NewMakeSet},
 	sql.Function1{Name: "max", Fn: func(ctx *sql.Context, e sql.Expression) sql.Expression { return aggregation.NewMax(e) }},
+	sql.Function2{Name: "mbrintersects", Fn: spatial.NewMBRIntersects},
 	sql.Function1{Name: "md5", Fn: NewMD5},
 	sql.Function1{Name: "microsecond", Fn: NewMicrosecond},
 	sql.FunctionN{Name: "mid", Fn: NewSubstring},
