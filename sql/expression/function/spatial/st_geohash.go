@@ -21,6 +21,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 )
 
 const base32 = "0123456789bcdefghjkmnpqrstuvwxyz"
@@ -146,8 +147,8 @@ func (g *GeoHash) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 			return nil, sql.ErrInvalidArgument.New(g.FunctionName())
 		}
 		// For SRID 4326, X is longitude, Y is latitude
-		lon = p.X
-		lat = p.Y
+		lon = p.Geometry.X()
+		lat = p.Geometry.Y()
 
 		lenVal, err := g.ChildExpressions[1].Eval(ctx, row)
 		if err != nil {
@@ -347,7 +348,10 @@ func (p *PointFromGeoHash) Eval(ctx *sql.Context, row sql.Row) (interface{}, err
 		return nil, err
 	}
 
-	return types.Point{SRID: srid, X: lon, Y: lat}, nil
+	geosContext := geos.NewContext()
+	result := geosContext.NewPoint([]float64{lon, lat})
+	result = result.SetSRID(int(srid))
+	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: result}}, nil
 }
 
 // LatFromGeoHash is a function that returns the latitude from a geohash string.

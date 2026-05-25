@@ -20,6 +20,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 
 	"github.com/dolthub/go-mysql-server/sql"
 )
@@ -85,5 +86,12 @@ func (g *GeomColl) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		geoms[i] = gv
 	}
 
-	return types.GeomColl{Geoms: geoms}, nil
+	var geometries = make([]*geos.Geom, len(geoms))
+	for i, g := range geoms {
+		geometries[i] = g.GetGeometry()
+	}
+
+	geosContext := geos.NewContext()
+	geometry := geosContext.NewCollection(geos.TypeIDGeometryCollection, geometries)
+	return types.GeomColl{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }

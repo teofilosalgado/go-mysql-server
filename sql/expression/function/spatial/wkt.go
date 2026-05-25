@@ -16,12 +16,12 @@ package spatial
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 )
 
 // AsWKT is a function that converts a spatial type into WKT format (alias for AsText)
@@ -74,140 +74,25 @@ func (p *AsWKT) WithChildren(ctx *sql.Context, children ...sql.Expression) (sql.
 	return NewAsWKT(ctx, children[0]), nil
 }
 
-// TODO: these functions could be refactored to be inside the sql.GeometryValue interface
-
-// PointToWKT converts a sql.Point to a string
-func PointToWKT(p types.Point, order bool) string {
-	x := strconv.FormatFloat(p.X, 'g', -1, 64)
-	y := strconv.FormatFloat(p.Y, 'g', -1, 64)
-	if order {
-		x, y = y, x
-	}
-	return fmt.Sprintf("%s %s", x, y)
-}
-
-// LineToWKT converts a sql.LineString to a string
-func LineToWKT(l types.LineString, order bool) string {
-	points := make([]string, len(l.Points))
-	for i, p := range l.Points {
-		points[i] = PointToWKT(p, order)
-	}
-	return strings.Join(points, ",")
-}
-
-// PolygonToWKT converts a sql.Polygon to a string
-func PolygonToWKT(p types.Polygon, order bool) string {
-	lines := make([]string, len(p.Lines))
-	for i, l := range p.Lines {
-		lines[i] = "(" + LineToWKT(l, order) + ")"
-	}
-	return strings.Join(lines, ",")
-}
-
-// MultiPointToWKT converts a sql.MultiPoint to a string
-func MultiPointToWKT(p types.MultiPoint, order bool) string {
-	points := make([]string, len(p.Points))
-	for i, p := range p.Points {
-		points[i] = "(" + PointToWKT(p, order) + ")"
-	}
-	return strings.Join(points, ",")
-}
-
-// MultiLineStringToWKT converts a sql.Polygon to a string
-func MultiLineStringToWKT(l types.MultiLineString, order bool) string {
-	lines := make([]string, len(l.Lines))
-	for i, line := range l.Lines {
-		lines[i] = "(" + LineToWKT(line, order) + ")"
-	}
-	return strings.Join(lines, ",")
-}
-
-// MultiPolygonToWKT converts a sql.Polygon to a string
-func MultiPolygonToWKT(p types.MultiPolygon, order bool) string {
-	polys := make([]string, len(p.Polygons))
-	for i, poly := range p.Polygons {
-		polys[i] = "(" + PolygonToWKT(poly, order) + ")"
-	}
-	return strings.Join(polys, ",")
-}
-
-// GeomCollToWKT converts a sql.Polygon to a string
-func GeomCollToWKT(g types.GeomColl, order bool) string {
-	geoms := make([]string, len(g.Geoms))
-	for i, geom := range g.Geoms {
-		switch g := geom.(type) {
-		case types.Point:
-			geoms[i] = "POINT(" + PointToWKT(g, order) + ")"
-		case types.LineString:
-			geoms[i] = "LINESTRING(" + LineToWKT(g, order) + ")"
-		case types.Polygon:
-			geoms[i] = "POLYGON(" + PolygonToWKT(g, order) + ")"
-		case types.MultiPoint:
-			geoms[i] = "MULTIPOINT(" + MultiPointToWKT(g, order) + ")"
-		case types.MultiLineString:
-			geoms[i] = "MULTILINESTRING(" + MultiLineStringToWKT(g, order) + ")"
-		case types.MultiPolygon:
-			geoms[i] = "MULTIPOLYGON(" + MultiPolygonToWKT(g, order) + ")"
-		case types.GeomColl:
-			if len(g.Geoms) == 0 {
-				geoms[i] = "GEOMETRYCOLLECTION EMPTY"
-			} else {
-				geoms[i] = "GEOMETRYCOLLECTION(" + GeomCollToWKT(g, order) + ")"
-			}
-		}
-	}
-	return strings.Join(geoms, ",")
-}
-
 // Eval implements the sql.Expression interface.
 func (p *AsWKT) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	// Evaluate child
-	val, err := p.Child.Eval(ctx, row)
+	// Evaluate argument
+	v, err := p.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
 
-	if val == nil {
+	// Return nil if argument is nil
+	if v == nil {
 		return nil, nil
 	}
 
-	val, err = types.UnwrapGeometry(ctx, val)
+	gv, err := types.UnwrapGeometry(ctx, v)
 	if err != nil {
-		return nil, sql.ErrInvalidGISData.New(p.FunctionName())
+		return nil, sql.ErrInvalidArgument.New(p.FunctionName())
 	}
 
-	var geomType string
-	var data string
-	switch v := val.(type) {
-	case types.Point:
-		geomType = "POINT"
-		data = PointToWKT(v, v.SRID == types.GeoSpatialSRID)
-	case types.LineString:
-		geomType = "LINESTRING"
-		data = LineToWKT(v, v.SRID == types.GeoSpatialSRID)
-	case types.Polygon:
-		geomType = "POLYGON"
-		data = PolygonToWKT(v, v.SRID == types.GeoSpatialSRID)
-	case types.MultiPoint:
-		geomType = "MULTIPOINT"
-		data = MultiPointToWKT(v, v.SRID == types.GeoSpatialSRID)
-	case types.MultiLineString:
-		geomType = "MULTILINESTRING"
-		data = MultiLineStringToWKT(v, v.SRID == types.GeoSpatialSRID)
-	case types.MultiPolygon:
-		geomType = "MULTIPOLYGON"
-		data = MultiPolygonToWKT(v, v.SRID == types.GeoSpatialSRID)
-	case types.GeomColl:
-		if len(v.Geoms) == 0 {
-			return "GEOMETRYCOLLECTION EMPTY", nil
-		}
-		geomType = "GEOMETRYCOLLECTION"
-		data = GeomCollToWKT(v, v.SRID == types.GeoSpatialSRID)
-	default:
-		return nil, sql.ErrInvalidGISData.New(p.FunctionName())
-	}
-
-	return fmt.Sprintf("%s(%s)", geomType, data), nil
+	return gv.GetGeometry().ToWKT(), nil
 }
 
 // GeomFromText is a function that returns a point type from a WKT string
@@ -260,442 +145,80 @@ func (g *GeomFromText) WithChildren(ctx *sql.Context, children ...sql.Expression
 	return NewGeomFromText(ctx, children...)
 }
 
-func TrimWKTData(s string) (string, int, error) {
-	// Must start with open parenthesis
-	if s[0] != '(' {
-		return "", 0, sql.ErrInvalidGISData.New()
-	}
-
-	// Read until all parentheses are closed
-	var count, end int
-	for count, end = 1, 1; end < len(s) && count != 0; end++ {
-		switch s[end] {
-		case '(':
-			count++
-		case ')':
-			count--
-		}
-	}
-	if count != 0 {
-		return "", 0, sql.ErrInvalidGISData.New()
-	}
-
-	// Remove parentheses, extract data, and trim
-	data := s[1 : end-1]
-	data = strings.TrimSpace(data)
-
-	return data, end, nil
+func WKTToPoint(geometry *geos.Geom) (types.Point, error) {
+	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
 
-// ParseWKTHeader should extract the type and data from the geometry string
-// `end` is used to detect extra characters after a valid geometry
-func ParseWKTHeader(s string) (string, string, int, error) {
-	// Handle "GEOMETRYCOLLECTION EMPTY" (and similar EMPTY forms)
-	trimmed := strings.TrimSpace(s)
-	lower := strings.ToLower(trimmed)
-	if strings.HasSuffix(lower, " empty") {
-		// Check if there's no parenthesis (pure EMPTY form)
-		parenIdx := strings.Index(trimmed, "(")
-		spaceIdx := strings.LastIndex(trimmed, " ")
-		if parenIdx == -1 || (spaceIdx > 0 && spaceIdx < len(trimmed) && parenIdx > spaceIdx) {
-			geomType := strings.TrimSpace(lower[:spaceIdx])
-			endIdx := spaceIdx + len(" empty")
-			return geomType, "", endIdx, nil
-		}
-	}
-
-	// Read until first open parenthesis
-	start := strings.Index(s, "(")
-
-	// Bad if no parenthesis found
-	if start == -1 {
-		return "", "", 0, sql.ErrInvalidGISData.New()
-	}
-
-	// Get Geometry Type
-	geomType := s[:start]
-	geomType = strings.TrimSpace(geomType)
-	geomType = strings.ToLower(geomType)
-
-	data, end, err := TrimWKTData(s[start:])
-	if err != nil {
-		return "", "", 0, err
-	}
-
-	return geomType, data, start + end, nil
+func WKTToLineString(geometry *geos.Geom) (types.LineString, error) {
+	return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
 
-// WKTToPoint expects a string like this "1.2 3.4"
-func WKTToPoint(s string, srid uint32, order bool) (types.Point, error) {
-	if len(s) == 0 {
-		return types.Point{}, sql.ErrInvalidGISData.New()
-	}
-
-	// Get everything between spaces
-	args := strings.Fields(s)
-	if len(args) != 2 {
-		return types.Point{}, sql.ErrInvalidGISData.New()
-	}
-
-	x, err := strconv.ParseFloat(args[0], 64)
-	if err != nil {
-		return types.Point{}, sql.ErrInvalidGISData.New()
-	}
-
-	y, err := strconv.ParseFloat(args[1], 64)
-	if err != nil {
-		return types.Point{}, sql.ErrInvalidGISData.New()
-	}
-
-	if order {
-		x, y = y, x
-	}
-
-	return types.Point{SRID: srid, X: x, Y: y}, nil
+func WKTToPolygon(geometry *geos.Geom) (types.Polygon, error) {
+	return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
 
-// WKTToLine expects a string like "1.2 3.4, 5.6 7.8, ..."
-func WKTToLine(s string, srid uint32, order bool) (types.LineString, error) {
-	if len(s) == 0 {
-		return types.LineString{}, sql.ErrInvalidGISData.New()
-	}
-
-	pointStrs := strings.Split(s, ",")
-	var points = make([]types.Point, len(pointStrs))
-	var err error
-	for i, ps := range pointStrs {
-		ps = strings.TrimSpace(ps)
-		if points[i], err = WKTToPoint(ps, srid, order); err != nil {
-			return types.LineString{}, sql.ErrInvalidGISData.New()
-		}
-	}
-
-	// Create LineString object
-	return types.LineString{SRID: srid, Points: points}, nil
+func WKTToMultiPoint(geometry *geos.Geom) (types.MultiPoint, error) {
+	return types.MultiPoint{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
 
-// WKTToPoly Expects a string like "(1 2, 3 4), (5 6, 7 8), ..."
-func WKTToPoly(s string, srid uint32, order bool) (types.Polygon, error) {
-	if len(s) == 0 {
-		return types.Polygon{}, sql.ErrInvalidGISData.New()
-	}
-
-	var lines []types.LineString
-	for {
-		// Get first linestring
-		lineStr, end, err := TrimWKTData(s)
-		if err != nil {
-			return types.Polygon{}, err
-		}
-
-		// Parse line
-		line, err := WKTToLine(lineStr, srid, order)
-		if err != nil {
-			return types.Polygon{}, sql.ErrInvalidGISData.New()
-		}
-		if !isLinearRing(line) {
-			return types.Polygon{}, sql.ErrInvalidGISData.New()
-		}
-		lines = append(lines, line)
-
-		// Prepare next string
-		s = s[end:]
-		s = strings.TrimSpace(s)
-
-		// Reached end
-		if len(s) == 0 {
-			break
-		}
-
-		// LineStrings must be comma-separated
-		if s[0] != ',' {
-			return types.Polygon{}, sql.ErrInvalidGISData.New()
-		}
-
-		// Drop leading comma
-		s = s[1:]
-		s = strings.TrimSpace(s)
-	}
-
-	return types.Polygon{SRID: srid, Lines: lines}, nil
+func WKTToMultiLineString(geometry *geos.Geom) (types.MultiLineString, error) {
+	return types.MultiLineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
 
-// WKTToMPoint expects a string like "(1.2 3.4), (5.6 7.8), ..." or "1.2 3.4, 5.6 7.8, ..."
-func WKTToMPoint(s string, srid uint32, order bool) (types.MultiPoint, error) {
-	if len(s) == 0 {
-		return types.MultiPoint{}, sql.ErrInvalidGISData.New()
-	}
-
-	s = strings.TrimSpace(s)
-
-	// Check if points are wrapped in parentheses: "(x y), (x y), ..."
-	if s[0] == '(' {
-		var points []types.Point
-		for {
-			pointStr, end, err := TrimWKTData(s)
-			if err != nil {
-				return types.MultiPoint{}, err
-			}
-			point, err := WKTToPoint(pointStr, srid, order)
-			if err != nil {
-				return types.MultiPoint{}, sql.ErrInvalidGISData.New()
-			}
-			points = append(points, point)
-
-			s = s[end:]
-			s = strings.TrimSpace(s)
-			if len(s) == 0 {
-				break
-			}
-			if s[0] != ',' {
-				return types.MultiPoint{}, sql.ErrInvalidGISData.New()
-			}
-			s = strings.TrimSpace(s[1:])
-		}
-		return types.MultiPoint{SRID: srid, Points: points}, nil
-	}
-
-	// Legacy format without parentheses: "x y, x y, ..."
-	pointStrs := strings.Split(s, ",")
-	var points = make([]types.Point, len(pointStrs))
-	var err error
-	for i, ps := range pointStrs {
-		ps = strings.TrimSpace(ps)
-		if points[i], err = WKTToPoint(ps, srid, order); err != nil {
-			return types.MultiPoint{}, sql.ErrInvalidGISData.New()
-		}
-	}
-
-	return types.MultiPoint{SRID: srid, Points: points}, nil
+func WKTToMultiPolygon(geometry *geos.Geom) (types.MultiPolygon, error) {
+	return types.MultiPolygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
 
-// WKTToMLine Expects a string like "(1 2, 3 4), (5 6, 7 8), ..."
-func WKTToMLine(s string, srid uint32, order bool) (types.MultiLineString, error) {
-	if len(s) == 0 {
-		return types.MultiLineString{}, sql.ErrInvalidGISData.New()
-	}
-
-	var lines []types.LineString
-	for {
-		// Get first linestring
-		lineStr, end, err := TrimWKTData(s)
-		if err != nil {
-			return types.MultiLineString{}, err
-		}
-
-		// Parse line
-		line, err := WKTToLine(lineStr, srid, order)
-		if err != nil {
-			return types.MultiLineString{}, sql.ErrInvalidGISData.New()
-		}
-		lines = append(lines, line)
-
-		// Prepare next string
-		s = s[end:]
-		s = strings.TrimSpace(s)
-
-		// Reached end
-		if len(s) == 0 {
-			break
-		}
-
-		// LineStrings must be comma-separated
-		if s[0] != ',' {
-			return types.MultiLineString{}, sql.ErrInvalidGISData.New()
-		}
-
-		// Drop leading comma
-		s = s[1:]
-		s = strings.TrimSpace(s)
-	}
-
-	return types.MultiLineString{SRID: srid, Lines: lines}, nil
-}
-
-// WKTToMPoly Expects a string like "((1 2, 3 4), (5 6, 7 8), ...), ..."
-func WKTToMPoly(s string, srid uint32, order bool) (types.MultiPolygon, error) {
-	if len(s) == 0 {
-		return types.MultiPolygon{}, sql.ErrInvalidGISData.New()
-	}
-	var polys []types.Polygon
-	for {
-		// Get first polygon
-		polyStr, end, err := TrimWKTData(s)
-		if err != nil {
-			return types.MultiPolygon{}, err
-		}
-
-		// Parse poly
-		poly, err := WKTToPoly(polyStr, srid, order)
-		if err != nil {
-			return types.MultiPolygon{}, sql.ErrInvalidGISData.New()
-		}
-		polys = append(polys, poly)
-
-		// Prepare next string
-		s = s[end:]
-		s = strings.TrimSpace(s)
-
-		// Reached end
-		if len(s) == 0 {
-			break
-		}
-
-		// Polygons must be comma-separated
-		if s[0] != ',' {
-			return types.MultiPolygon{}, sql.ErrInvalidGISData.New()
-		}
-
-		// Drop leading comma
-		s = s[1:]
-		s = strings.TrimSpace(s)
-	}
-
-	return types.MultiPolygon{SRID: srid, Polygons: polys}, nil
-}
-
-// WKTToGeomColl Expects a string like "((1 2, 3 4), (5 6, 7 8), ...), ..."
-func WKTToGeomColl(s string, srid uint32, order bool) (types.GeomColl, error) {
-	// empty geometry collections
-	if len(s) == 0 {
-		return types.GeomColl{SRID: srid, Geoms: []types.GeometryValue{}}, nil
-	}
-
-	var geoms []types.GeometryValue
-	for {
-		// parse first type
-		geomType, data, end, err := ParseWKTHeader(s)
-		if err != nil {
-			return types.GeomColl{}, sql.ErrInvalidGISData.New()
-		}
-		var geom types.GeometryValue
-		switch geomType {
-		case "point":
-			geom, err = WKTToPoint(data, srid, order)
-		case "linestring":
-			geom, err = WKTToLine(data, srid, order)
-		case "polygon":
-			geom, err = WKTToPoly(data, srid, order)
-		case "multipoint":
-			geom, err = WKTToMPoint(data, srid, order)
-		case "multilinestring":
-			geom, err = WKTToMLine(data, srid, order)
-		case "multipolygon":
-			geom, err = WKTToMPoly(data, srid, order)
-		case "geometrycollection":
-			geom, err = WKTToGeomColl(data, srid, order)
-		default:
-			return types.GeomColl{}, sql.ErrInvalidGISData.New()
-		}
-		geoms = append(geoms, geom)
-
-		// Prepare next string
-		s = s[end:]
-		s = strings.TrimSpace(s)
-
-		// Reached end
-		if len(s) == 0 {
-			break
-		}
-
-		// Geometries must be comma-separated
-		if s[0] != ',' {
-			return types.GeomColl{}, sql.ErrInvalidGISData.New()
-		}
-
-		// Drop leading comma
-		s = s[1:]
-		s = strings.TrimSpace(s)
-	}
-
-	return types.GeomColl{SRID: srid, Geoms: geoms}, nil
+func WKTToGeomColl(geometry *geos.Geom) (types.GeomColl, error) {
+	return types.GeomColl{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
 
 // WKTToGeom expects a string in WKT format, and converts it to a geometry type
 func WKTToGeom(ctx *sql.Context, row sql.Row, exprs []sql.Expression, expectedGeomType string) (types.GeometryValue, error) {
-	val, err := exprs[0].Eval(ctx, row)
+	rawWKT, err := exprs[0].Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
-
-	if val == nil {
-		return nil, nil
-	}
-
-	s, ok := val.(string)
+	parsedWKT, ok := rawWKT.(string)
 	if !ok {
 		return nil, sql.ErrInvalidGISData.New()
 	}
 
-	s = strings.TrimSpace(s)
-	geomType, data, end, err := ParseWKTHeader(s)
-	if err != nil || end != len(s) { // detect extra characters
+	rawSRID, err := exprs[1].Eval(ctx, row)
+	if err != nil {
 		return nil, err
 	}
-
-	if expectedGeomType != "" && geomType != expectedGeomType {
+	parsedSrid, ok := rawSRID.(int16)
+	if !ok {
 		return nil, sql.ErrInvalidGISData.New()
 	}
 
-	// only GEOMETRYCOLLECTION is allowed to be empty
+	geosContext := geos.NewContext()
+	geomFromWKT, err := geosContext.NewGeomFromWKT(parsedWKT)
+	if err != nil {
+		return nil, err
+	}
+	geomFromWKT = geomFromWKT.SetSRID(int(parsedSrid))
 
-	srid := uint32(0)
-	if len(exprs) >= 2 {
-		s, err := exprs[1].Eval(ctx, row)
-		if err != nil {
-			return nil, err
-		}
-		if s == nil {
-			return nil, nil
-		}
-		s, _, err = types.Int64.Convert(ctx, s)
-		if err != nil {
-			return nil, err
-		}
-		if err = types.ValidateSRID(int(s.(int64)), "st_geomfromtext"); err != nil {
-			return nil, err
-		}
-		srid = uint32(s.(int64))
+	if expectedGeomType != "" && geomFromWKT.Type() != expectedGeomType {
+		return nil, sql.ErrInvalidGISData.New()
 	}
 
-	order := srid == types.GeoSpatialSRID
-	if len(exprs) == 3 {
-		o, err := exprs[2].Eval(ctx, row)
-		if err != nil {
-			return nil, err
-		}
-		switch str := o.(type) {
-		case string:
-			// this only applies to types.GeoSpatialSRID
-			swap, ok := ParseAxisOrder(str)
-			if !ok {
-				return nil, sql.ErrInvalidKeyPair.New(str, "st_geomfromtext")
-			}
-			if srid == types.GeoSpatialSRID && swap {
-				order = !order
-			}
-		case nil:
-			return nil, nil
-		default:
-			return nil, sql.ErrInvalidKeyPair.New(o, "st_geomfromtext")
-		}
-	}
-
-	switch geomType {
-	case "point":
-		return WKTToPoint(data, srid, order)
-	case "linestring":
-		return WKTToLine(data, srid, order)
-	case "polygon":
-		return WKTToPoly(data, srid, order)
-	case "multipoint":
-		return WKTToMPoint(data, srid, order)
-	case "multilinestring":
-		return WKTToMLine(data, srid, order)
-	case "multipolygon":
-		return WKTToMPoly(data, srid, order)
-	case "geometrycollection":
-		return WKTToGeomColl(data, srid, order)
+	switch geomFromWKT.Type() {
+	case "Point":
+		return WKTToPoint(geomFromWKT)
+	case "LineString":
+		return WKTToLineString(geomFromWKT)
+	case "Polygon":
+		return WKTToPolygon(geomFromWKT)
+	case "MultiPoint":
+		return WKTToMultiPoint(geomFromWKT)
+	case "MultiLinestring":
+		return WKTToMultiLineString(geomFromWKT)
+	case "MultiPolygon":
+		return WKTToMultiPolygon(geomFromWKT)
+	case "GeometryCollection":
+		return WKTToGeomColl(geomFromWKT)
 	default:
 		return nil, sql.ErrInvalidGISData.New()
 	}
@@ -761,7 +284,7 @@ func (p *PointFromText) WithChildren(ctx *sql.Context, children ...sql.Expressio
 
 // Eval implements the sql.Expression interface.
 func (p *PointFromText) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	point, err := WKTToGeom(ctx, row, p.ChildExpressions, "point")
+	point, err := WKTToGeom(ctx, row, p.ChildExpressions, "Point")
 	if sql.ErrInvalidGISData.Is(err) {
 		return nil, sql.ErrInvalidGISData.New(p.FunctionName())
 	}
@@ -819,7 +342,7 @@ func (l *LineFromText) WithChildren(ctx *sql.Context, children ...sql.Expression
 
 // Eval implements the sql.Expression interface.
 func (l *LineFromText) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	line, err := WKTToGeom(ctx, row, l.ChildExpressions, "linestring")
+	line, err := WKTToGeom(ctx, row, l.ChildExpressions, "LineString")
 	if sql.ErrInvalidGISData.Is(err) {
 		return nil, sql.ErrInvalidGISData.New(l.FunctionName())
 	}
@@ -877,7 +400,7 @@ func (p *PolyFromText) WithChildren(ctx *sql.Context, children ...sql.Expression
 
 // Eval implements the sql.Expression interface.
 func (p *PolyFromText) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	poly, err := WKTToGeom(ctx, row, p.ChildExpressions, "polygon")
+	poly, err := WKTToGeom(ctx, row, p.ChildExpressions, "Polygon")
 	if sql.ErrInvalidGISData.Is(err) {
 		return nil, sql.ErrInvalidGISData.New(p.FunctionName())
 	}
@@ -935,7 +458,7 @@ func (p *MPointFromText) WithChildren(ctx *sql.Context, children ...sql.Expressi
 
 // Eval implements the sql.Expression interface.
 func (p *MPointFromText) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	line, err := WKTToGeom(ctx, row, p.ChildExpressions, "multipoint")
+	line, err := WKTToGeom(ctx, row, p.ChildExpressions, "MultiPoint")
 	if sql.ErrInvalidGISData.Is(err) {
 		return nil, sql.ErrInvalidGISData.New(p.FunctionName())
 	}
@@ -993,7 +516,7 @@ func (l *MLineFromText) WithChildren(ctx *sql.Context, children ...sql.Expressio
 
 // Eval implements the sql.Expression interface.
 func (l *MLineFromText) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	mline, err := WKTToGeom(ctx, row, l.ChildExpressions, "multilinestring")
+	mline, err := WKTToGeom(ctx, row, l.ChildExpressions, "MultilineString")
 	if sql.ErrInvalidGISData.Is(err) {
 		return nil, sql.ErrInvalidGISData.New(l.FunctionName())
 	}
@@ -1051,7 +574,7 @@ func (p *MPolyFromText) WithChildren(ctx *sql.Context, children ...sql.Expressio
 
 // Eval implements the sql.Expression interface.
 func (p *MPolyFromText) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	mpoly, err := WKTToGeom(ctx, row, p.ChildExpressions, "multipolygon")
+	mpoly, err := WKTToGeom(ctx, row, p.ChildExpressions, "MultiPolygon")
 	if sql.ErrInvalidGISData.Is(err) {
 		return nil, sql.ErrInvalidGISData.New(p.FunctionName())
 	}
@@ -1109,7 +632,7 @@ func (p *GeomCollFromText) WithChildren(ctx *sql.Context, children ...sql.Expres
 
 // Eval implements the sql.Expression interface.
 func (p *GeomCollFromText) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	geom, err := WKTToGeom(ctx, row, p.ChildExpressions, "geometrycollection")
+	geom, err := WKTToGeom(ctx, row, p.ChildExpressions, "GeometryCollection")
 	if sql.ErrInvalidGISData.Is(err) {
 		return nil, sql.ErrInvalidGISData.New(p.FunctionName())
 	}

@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 )
 
 // Point is a function that returns a point type containing values Y and Y.
@@ -114,5 +115,7 @@ func (p *Point) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, err
 	}
 
-	return types.Point{X: _x.(float64), Y: _y.(float64)}, nil
+	geosContext := geos.NewContext()
+	geometry := geosContext.NewPoint([]float64{_x.(float64), _y.(float64)})
+	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }

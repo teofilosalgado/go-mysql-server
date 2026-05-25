@@ -67,24 +67,6 @@ func (a *Area) WithChildren(ctx *sql.Context, children ...sql.Expression) (sql.E
 	return NewArea(ctx, children[0]), nil
 }
 
-// calculateArea takes a polygon linestring, and finds the area
-// this uses the Shoelace formula: https://en.wikipedia.org/wiki/Shoelace_formula
-// TODO: if SRID is not cartesian, the area should be geodetic
-func calculateArea(l types.LineString) float64 {
-	var area float64
-	for i := 0; i < len(l.Points)-1; i++ {
-		p1 := l.Points[i]
-		p2 := l.Points[i+1]
-		area += p1.X*p2.Y - p1.Y*p2.X
-	}
-
-	if area < 0 {
-		area = -area
-	}
-
-	return area / 2
-}
-
 // Eval implements the sql.Expression interface.
 func (a *Area) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	// Evaluate argument
@@ -98,27 +80,10 @@ func (a *Area) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	// TODO: Multi-Polygons are also valid
-	// Only allow polygons
 	gv, err := types.UnwrapGeometry(ctx, v)
 	if err != nil {
 		return nil, sql.ErrInvalidArgument.New(a.FunctionName())
 	}
-	p, ok := gv.(types.Polygon)
-	if !ok {
-		return nil, sql.ErrInvalidArgument.New(a.FunctionName())
-	}
-	if p.SRID != types.CartesianSRID {
-		return nil, sql.ErrUnsupportedSRID.New(p.SRID)
-	}
 
-	var totalArea float64
-	for i, l := range p.Lines {
-		area := calculateArea(l)
-		if i != 0 {
-			area = -area
-		}
-		totalArea += area
-	}
-	return totalArea, nil
+	return gv.GetGeometry().Area(), nil
 }

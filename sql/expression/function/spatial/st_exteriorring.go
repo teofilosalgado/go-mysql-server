@@ -74,31 +74,21 @@ func (e *ExteriorRing) WithChildren(ctx *sql.Context, children ...sql.Expression
 
 // Eval implements the sql.Expression interface.
 func (e *ExteriorRing) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	val, err := e.Child.Eval(ctx, row)
+	// Evaluate argument
+	v, err := e.Child.Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
 
-	if val == nil {
+	// Return nil if argument is nil
+	if v == nil {
 		return nil, nil
 	}
 
-	gv, err := types.UnwrapGeometry(ctx, val)
+	gv, err := types.UnwrapGeometry(ctx, v)
 	if err != nil {
-		return nil, sql.ErrInvalidGISData.New(e.FunctionName())
-	}
-
-	p, ok := gv.(types.Polygon)
-	if !ok {
 		return nil, sql.ErrInvalidArgument.New(e.FunctionName())
 	}
 
-	if len(p.Lines) == 0 {
-		return nil, nil
-	}
-
-	// The exterior ring is the first linestring in the polygon
-	ring := p.Lines[0]
-	ring.SRID = p.SRID
-	return ring, nil
+	return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: gv.GetGeometry().ExteriorRing()}}, nil
 }

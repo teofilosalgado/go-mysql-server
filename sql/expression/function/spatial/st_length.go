@@ -16,7 +16,7 @@ package spatial
 
 import (
 	"fmt"
-	"math"
+	"reflect"
 	"strings"
 
 	"github.com/dolthub/go-mysql-server/sql"
@@ -73,53 +73,36 @@ func (s *STLength) WithChildren(ctx *sql.Context, children ...sql.Expression) (s
 	return NewSTLength(ctx, children...)
 }
 
-// calculateLength sums up the line segments formed from a LineString
-func calculateLength(l types.LineString) float64 {
-	var length float64
-	for i := 0; i < len(l.Points)-1; i++ {
-		p1 := l.Points[i]
-		p2 := l.Points[i+1]
-		length += math.Sqrt(math.Pow(p2.X-p1.X, 2) + math.Pow(p2.Y-p1.Y, 2))
-	}
-	return length
-}
-
 // Eval implements the sql.Expression interface.
 func (s *STLength) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
-	// Evaluate first argument
-	v1, err := s.ChildExpressions[0].Eval(ctx, row)
+	ls, err := s.ChildExpressions[0].Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
 
-	// Return nil if argument is nil
-	if v1 == nil {
+	if ls == nil {
 		return nil, nil
 	}
 
-	// Unwrap if needed (e.g. adaptive storage)
-	v1, err = types.UnwrapGeometry(ctx, v1)
+	gv, err := types.UnwrapGeometry(ctx, ls)
 	if err != nil {
 		return nil, sql.ErrInvalidGISData.New(s.FunctionName())
 	}
 
-	// Return nil if argument is geometry typ, but not linestring
-	var l types.LineString
-	switch v := v1.(type) {
-	case types.LineString:
-		l = v
-	case types.Point, types.Polygon:
-		return nil, nil
-	default:
-		return nil, sql.ErrInvalidGISData.New(s.FunctionName())
-	}
-
-	// TODO: if SRID is not 0, find geodetic distance
-	// If just one argument, return length
 	if len(s.ChildExpressions) == 1 {
-		return calculateLength(l), nil
+		return gv.GetGeometry().Length(), nil
 	}
 
-	// TODO: support geodetic distance
-	return nil, sql.ErrUnsupportedFeature.New("st_length with non-zero SRID")
+	unit, err := s.ChildExpressions[1].Eval(ctx, row)
+	if err != nil {
+		return nil, err
+	}
+
+	unit, _, err = types.Text.Convert(ctx, unit)
+	if err != nil {
+		return nil, sql.ErrInvalidType.New(reflect.TypeOf(unit))
+	}
+
+	// TODO: Implement unit argument
+	return nil, nil
 }

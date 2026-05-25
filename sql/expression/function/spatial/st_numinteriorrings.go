@@ -93,9 +93,5 @@ func (n *NumInteriorRings) Eval(ctx *sql.Context, row sql.Row) (interface{}, err
 		return nil, sql.ErrInvalidArgument.New(n.FunctionName())
 	}
 
-	// The first ring is the exterior ring; all subsequent rings are interior
-	if len(p.Lines) == 0 {
-		return 0, nil
-	}
-	return len(p.Lines) - 1, nil
+	return p.Geometry.NumInteriorRings(), nil
 }

@@ -94,5 +94,5 @@ func (n *NumPoints) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	return len(l.Points), nil
+	return l.Geometry.NumPoints(), nil
 }

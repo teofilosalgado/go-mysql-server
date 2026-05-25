@@ -88,12 +88,5 @@ func (i *IsEmpty) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidGISData.New(i.FunctionName())
 	}
 
-	// In MySQL, only an empty GeometryCollection is considered "empty".
-	// All other geometry types (including multi-types) are non-empty.
-	switch v := gv.(type) {
-	case types.GeomColl:
-		return len(v.Geoms) == 0, nil
-	default:
-		return false, nil
-	}
+	return gv.GetGeometry().IsEmpty(), nil
 }

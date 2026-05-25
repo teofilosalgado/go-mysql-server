@@ -85,35 +85,29 @@ func (c *Contains) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	geom2, err := c.RightChild.Eval(ctx, row)
 	if err != nil {
 		return nil, err
 	}
 
-	// Note: arguments are swapped — Contains(g1,g2) == Within(g2,g1)
-	g2, g1, err := validateGeomComp(ctx, geom2, geom1, c.FunctionName())
-	if err != nil {
-		return nil, err
+	if geom1 == nil || geom2 == nil {
+		return nil, nil
 	}
+
+	g1, err := types.UnwrapGeometry(ctx, geom1)
+	if err != nil {
+		return nil, sql.ErrInvalidGISData.New(c.FunctionName())
+	}
+
+	g2, err := types.UnwrapGeometry(ctx, geom2)
+	if err != nil {
+		return nil, sql.ErrInvalidGISData.New(c.FunctionName())
+	}
+
 	if g1 == nil || g2 == nil {
 		return nil, nil
 	}
 
-	// TODO (james): remove this switch block when the other comparisons are implemented
-	switch g2.(type) {
-	case types.LineString:
-		return nil, sql.ErrUnsupportedGISTypeForSpatialFunc.New("LineString", c.FunctionName())
-	case types.Polygon:
-		return nil, sql.ErrUnsupportedGISTypeForSpatialFunc.New("Polygon", c.FunctionName())
-	case types.MultiPoint:
-		return nil, sql.ErrUnsupportedGISTypeForSpatialFunc.New("MultiPoint", c.FunctionName())
-	case types.MultiLineString:
-		return nil, sql.ErrUnsupportedGISTypeForSpatialFunc.New("MultiLineString", c.FunctionName())
-	case types.MultiPolygon:
-		return nil, sql.ErrUnsupportedGISTypeForSpatialFunc.New("MultiPolygon", c.FunctionName())
-	case types.GeomColl:
-		return nil, sql.ErrUnsupportedGISTypeForSpatialFunc.New("GeomColl", c.FunctionName())
-	}
-
-	return isWithin(g2, g1), nil
+	return g1.GetGeometry().Contains(g2.GetGeometry()), nil
 }

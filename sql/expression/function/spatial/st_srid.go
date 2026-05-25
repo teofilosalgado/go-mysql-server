@@ -116,5 +116,5 @@ func (s *SRID) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 	srid := uint32(val.(int64))
 
-	return gv.SetSRID(srid), nil
+	return gv.SetSRID(int(srid)), nil
 }

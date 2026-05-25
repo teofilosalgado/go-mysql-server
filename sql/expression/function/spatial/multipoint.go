@@ -20,6 +20,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 
 	"github.com/dolthub/go-mysql-server/sql"
 )
@@ -95,5 +96,12 @@ func (l *MultiPoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		}
 	}
 
-	return types.MultiPoint{Points: points}, nil
+	var geometries = make([]*geos.Geom, len(points))
+	for i, g := range points {
+		geometries[i] = g.Geometry
+	}
+
+	geosContext := geos.NewContext()
+	geometry := geosContext.NewCollection(geos.TypeIDPoint, geometries)
+	return types.MultiPoint{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }

@@ -115,9 +115,9 @@ func (p *PointN) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// N is 1-based; out-of-range returns NULL
-	if idx < 1 || idx > len(l.Points) {
+	if idx < 1 || idx > l.Geometry.NumCoordinates() {
 		return nil, nil
 	}
 
-	return l.Points[idx-1], nil
+	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: l.Geometry.Point(idx - 1)}}, nil
 }

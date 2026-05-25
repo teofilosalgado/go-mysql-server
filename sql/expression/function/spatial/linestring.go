@@ -20,6 +20,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/types"
+	"github.com/twpayne/go-geos"
 
 	"github.com/dolthub/go-mysql-server/sql"
 )
@@ -76,7 +77,7 @@ func (l *LineString) WithChildren(ctx *sql.Context, children ...sql.Expression) 
 // Eval implements the sql.Expression interface.
 func (l *LineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	// Allocate array of points
-	var points = make([]types.Point, len(l.ChildExpressions))
+	var coordinates = make([][]float64, len(l.ChildExpressions))
 
 	// Go through each argument
 	for i, arg := range l.ChildExpressions {
@@ -92,13 +93,15 @@ func (l *LineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		}
 		switch v := gv.(type) {
 		case types.Point:
-			points[i] = v
-		case types.GeometryValue:
-			return nil, sql.ErrInvalidArgumentDetails.New(l.FunctionName(), v)
+			coordinates[i] = make([]float64, 2)
+			coordinates[i][0] = v.Geometry.X()
+			coordinates[i][1] = v.Geometry.Y()
 		default:
 			return nil, sql.ErrIllegalGISValue.New(v)
 		}
 	}
 
-	return types.LineString{Points: points}, nil
+	geosContext := geos.NewContext()
+	geometry := geosContext.NewLineString(coordinates)
+	return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
