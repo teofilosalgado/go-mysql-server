@@ -117,3 +117,9 @@ func (t GeomCollType) Zero() interface{} {
 	geosContext := geos.NewContext()
 	return MultiPolygon{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDGeometryCollection)}}
 }
+
+// SetSRID implements SpatialColumnType interface.
+func (t GeomCollType) SetSRID(v int) sql.Type {
+	t.SRID = v
+	return t
+}

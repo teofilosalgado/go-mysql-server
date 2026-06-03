@@ -104,3 +104,9 @@ func (t LineStringType) Zero() interface{} {
 	geosContext := geos.NewContext()
 	return LineString{BaseGeometry{Geometry: geosContext.NewEmptyLineString()}}
 }
+
+// SetSRID implements SpatialColumnType interface.
+func (t LineStringType) SetSRID(v int) sql.Type {
+	t.SRID = v
+	return t
+}

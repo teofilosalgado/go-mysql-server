@@ -117,3 +117,9 @@ func (t PointType) Zero() interface{} {
 func (t PointType) ValueType() reflect.Type {
 	return pointValueType
 }
+
+// SetSRID implements SpatialColumnType interface.
+func (t PointType) SetSRID(v int) sql.Type {
+	t.SRID = v
+	return t
+}
