@@ -108,3 +108,9 @@ func (t MultiPointType) Zero() interface{} {
 	geosContext := geos.NewContext()
 	return MultiPoint{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDPoint)}}
 }
+
+// SetSRID implements SpatialColumnType interface.
+func (t MultiPointType) SetSRID(v int) sql.Type {
+	t.SRID = v
+	return t
+}
