@@ -17,6 +17,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/sirupsen/logrus v1.8.3
 	github.com/stretchr/testify v1.11.1
+	github.com/twpayne/go-geos v0.20.4
 	go.opentelemetry.io/otel v1.41.0
 	go.opentelemetry.io/otel/trace v1.41.0
 	golang.org/x/sync v0.20.0
@@ -30,9 +31,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.1 // indirect
-	github.com/Knetic/govaluate v3.0.0+incompatible // indirect
-	github.com/bcicen/bfstree v1.0.0 // indirect
-	github.com/bcicen/go-units v1.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
