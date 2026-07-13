@@ -218,7 +218,7 @@ func newServerFromHandler(cfg Config, e *sqle.Engine, sm *SessionManager, handle
 
 // Start starts accepting connections on the server.
 func (s *Server) Start() error {
-	logrus.Infof("Server ready. Accepting connections.")
+	logrus.Infof("GeoVCS DB Server ready. Accepting connections.")
 	s.WarnIfLoadFileInsecure()
 	s.Listener.Accept()
 	return nil

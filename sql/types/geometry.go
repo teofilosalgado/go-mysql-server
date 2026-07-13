@@ -186,7 +186,7 @@ func deserializeWKB(mySQLBytes []byte, srid int) (*geos.Geom, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error while deserializing WKB: %w", err)
 	}
-	geometry.SetSRID(31983)
+	geometry.SetSRID(srid)
 
 	return geometry, nil
 }
