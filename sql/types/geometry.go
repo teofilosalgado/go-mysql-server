@@ -172,13 +172,13 @@ const (
 	WKBGeomCollID
 )
 
-func deserializeWKB(mySQLBytes []byte, srid int) (*geos.Geom, error) {
+func deserializeWKB(mySQLBytes []byte, srid int, wkbGeometryTypeId int) (*geos.Geom, error) {
 	h := hex.EncodeToString(mySQLBytes)
 	fmt.Println(h)
 
 	wkb := make([]byte, 5+len(mySQLBytes))
 	wkb[0] = 1
-	binary.LittleEndian.PutUint32(wkb[1:5], 2)
+	binary.LittleEndian.PutUint32(wkb[1:5], uint32(wkbGeometryTypeId))
 	copy(wkb[5:], mySQLBytes)
 
 	geosContext := geos.NewContext()
@@ -231,7 +231,7 @@ func DeserializeWKBHeader(buf []byte) (bigEndian bool, typ uint32, err error) {
 
 // DeserializePoint parses the data portion of a byte array in WKB format to a Point object
 func DeserializePoint(buf []byte, isBig bool, srid uint32) (Point, int, error) {
-	geom, err := deserializeWKB(buf, int(srid))
+	geom, err := deserializeWKB(buf, int(srid), WKBPointID)
 	if err != nil {
 		return Point{}, 0, sql.ErrInvalidGISData.New("DeserializePoint")
 	}
@@ -240,7 +240,7 @@ func DeserializePoint(buf []byte, isBig bool, srid uint32) (Point, int, error) {
 
 // DeserializeLine parses the data portion of a byte array in WKB format to a LineString object
 func DeserializeLine(buf []byte, isBig bool, srid uint32) (LineString, int, error) {
-	geom, err := deserializeWKB(buf, int(srid))
+	geom, err := deserializeWKB(buf, int(srid), WKBLineID)
 	if err != nil {
 		return LineString{}, 0, sql.ErrInvalidGISData.New("DeserializeLine")
 	}
@@ -249,7 +249,7 @@ func DeserializeLine(buf []byte, isBig bool, srid uint32) (LineString, int, erro
 
 // DeserializePoly parses the data portion of a byte array in WKB format to a Polygon object
 func DeserializePoly(buf []byte, isBig bool, srid uint32) (Polygon, int, error) {
-	geom, err := deserializeWKB(buf, int(srid))
+	geom, err := deserializeWKB(buf, int(srid), WKBPolyID)
 	if err != nil {
 		return Polygon{}, 0, sql.ErrInvalidGISData.New("DeserializePoly")
 	}
@@ -258,7 +258,7 @@ func DeserializePoly(buf []byte, isBig bool, srid uint32) (Polygon, int, error) 
 
 // DeserializeMPoint parses the data portion of a byte array in WKB format to a MultiPoint object
 func DeserializeMPoint(buf []byte, isBig bool, srid uint32) (MultiPoint, int, error) {
-	geom, err := deserializeWKB(buf, int(srid))
+	geom, err := deserializeWKB(buf, int(srid), WKBMultiPointID)
 	if err != nil {
 		return MultiPoint{}, 0, sql.ErrInvalidGISData.New("DeserializeMPoint")
 	}
@@ -267,7 +267,7 @@ func DeserializeMPoint(buf []byte, isBig bool, srid uint32) (MultiPoint, int, er
 
 // DeserializeMLine parses the data portion of a byte array in WKB format to a MultiLineString object
 func DeserializeMLine(buf []byte, isBig bool, srid uint32) (MultiLineString, int, error) {
-	geom, err := deserializeWKB(buf, int(srid))
+	geom, err := deserializeWKB(buf, int(srid), WKBMultiLineID)
 	if err != nil {
 		return MultiLineString{}, 0, sql.ErrInvalidGISData.New("DeserializeMLine")
 	}
@@ -276,7 +276,7 @@ func DeserializeMLine(buf []byte, isBig bool, srid uint32) (MultiLineString, int
 
 // DeserializeMPoly parses the data portion of a byte array in WKB format to a MultiPolygon object
 func DeserializeMPoly(buf []byte, isBig bool, srid uint32) (MultiPolygon, int, error) {
-	geom, err := deserializeWKB(buf, int(srid))
+	geom, err := deserializeWKB(buf, int(srid), WKBMultiPolyID)
 	if err != nil {
 		return MultiPolygon{}, 0, sql.ErrInvalidGISData.New("DeserializeMPoly")
 	}
@@ -285,7 +285,7 @@ func DeserializeMPoly(buf []byte, isBig bool, srid uint32) (MultiPolygon, int, e
 
 // DeserializeGeomColl parses the data portion of a byte array in WKB format to a GeometryCollection object
 func DeserializeGeomColl(buf []byte, isBig bool, srid uint32) (GeomColl, int, error) {
-	geom, err := deserializeWKB(buf, int(srid))
+	geom, err := deserializeWKB(buf, int(srid), WKBGeomCollID)
 	if err != nil {
 		return GeomColl{}, 0, sql.ErrInvalidGISData.New("DeserializeGeomColl")
 	}
