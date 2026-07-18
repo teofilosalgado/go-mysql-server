@@ -71,10 +71,20 @@ func (t PointType) Convert(ctx context.Context, v interface{}) (interface{}, sql
 	case string:
 		return t.Convert(ctx, []byte(val))
 	case Point:
+		// TODO
+		// The ST_SRID funcion may return a geometry with a different SRID from its original table. The following lines were removed to prevent this issue.
+		// if err := t.MatchSRID(buf); err != nil {
+		// 	return nil, sql.InRange, err
+		// }
 		if err := t.MatchSRID(val); err != nil {
 			return nil, sql.InRange, err
 		}
 		return val, sql.InRange, nil
+	case GeometryValue:
+		if val.GetGeometry().Type() != "Point" {
+			return nil, sql.InRange, sql.ErrInvalidGISData.New("PointType.Convert")
+		}
+		return Point{BaseGeometry: BaseGeometry{Geometry: val.GetGeometry()}}, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := val.UnwrapAny(ctx)
 		if err != nil {

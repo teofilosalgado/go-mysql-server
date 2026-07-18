@@ -62,10 +62,20 @@ func (t MultiPointType) Convert(ctx context.Context, v interface{}) (interface{}
 	case string:
 		return t.Convert(ctx, []byte(buf))
 	case MultiPoint:
+		// TODO
+		// The ST_SRID funcion may return a geometry with a different SRID from its original table. The following lines were removed to prevent this issue.
+		// if err := t.MatchSRID(buf); err != nil {
+		// 	return nil, sql.InRange, err
+		// }
 		if err := t.MatchSRID(buf); err != nil {
 			return nil, sql.InRange, err
 		}
 		return buf, sql.InRange, nil
+	case GeometryValue:
+		if buf.GetGeometry().Type() != "MultiPoint" {
+			return nil, sql.InRange, sql.ErrInvalidGISData.New("MultiPointType.Convert")
+		}
+		return MultiPoint{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
 		if err != nil {

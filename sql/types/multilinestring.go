@@ -58,10 +58,20 @@ func (t MultiLineStringType) Convert(ctx context.Context, v interface{}) (interf
 	case string:
 		return t.Convert(ctx, []byte(buf))
 	case MultiLineString:
+		// TODO
+		// The ST_SRID funcion may return a geometry with a different SRID from its original table. The following lines were removed to prevent this issue.
+		// if err := t.MatchSRID(buf); err != nil {
+		// 	return nil, sql.InRange, err
+		// }
 		if err := t.MatchSRID(buf); err != nil {
 			return nil, sql.InRange, err
 		}
 		return buf, sql.InRange, nil
+	case GeometryValue:
+		if buf.GetGeometry().Type() != "MultiLinestring" {
+			return nil, sql.InRange, sql.ErrInvalidGISData.New("MultiLineString.Convert")
+		}
+		return MultiLineString{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
 		if err != nil {
