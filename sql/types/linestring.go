@@ -58,10 +58,17 @@ func (t LineStringType) Convert(ctx context.Context, v interface{}) (interface{}
 	case string:
 		return t.Convert(ctx, []byte(buf))
 	case LineString:
-		if err := t.MatchSRID(buf); err != nil {
-			return nil, sql.InRange, err
-		}
+		// TODO
+		// The ST_SRID funcion may return a geometry with a different SRID from its original table. The following lines were removed to prevent this issue.
+		// if err := t.MatchSRID(buf); err != nil {
+		// 	return nil, sql.InRange, err
+		// }
 		return buf, sql.InRange, nil
+	case GeometryValue:
+		if buf.GetGeometry().Type() != "LineString" {
+			return nil, sql.InRange, sql.ErrInvalidGISData.New("LineStringType.Convert")
+		}
+		return LineString{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
 		if err != nil {

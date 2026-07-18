@@ -97,6 +97,7 @@ func (s *SRID) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return gv.GetSRID(), nil
 	}
 
+	// If more than one argument, set SRID and return geometry
 	v, err := s.ChildExpressions[1].Eval(ctx, row)
 	if err != nil {
 		return nil, err
