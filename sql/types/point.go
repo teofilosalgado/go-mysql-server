@@ -53,19 +53,9 @@ func (t PointType) Convert(ctx context.Context, v interface{}) (interface{}, sql
 	// Handle conversions
 	switch val := v.(type) {
 	case []byte:
-		// Parse header
-		srid, isBig, geomType, err := DeserializeEWKBHeader(val)
-		if err != nil {
-			return nil, sql.InRange, err
-		}
-		// Throw error if not marked as point
-		if geomType != WKBPointID {
+		point, _, err := GeometryType{}.Convert(ctx, val)
+		if sql.ErrInvalidGISData.Is(err) {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("PointType.Convert")
-		}
-		// Parse data section
-		point, _, err := DeserializePoint(val[EWKBHeaderSize:], isBig, srid)
-		if err != nil {
-			return nil, sql.InRange, err
 		}
 		return point, sql.InRange, nil
 	case string:
@@ -76,15 +66,13 @@ func (t PointType) Convert(ctx context.Context, v interface{}) (interface{}, sql
 		// if err := t.MatchSRID(buf); err != nil {
 		// 	return nil, sql.InRange, err
 		// }
-		if err := t.MatchSRID(val); err != nil {
-			return nil, sql.InRange, err
-		}
 		return val, sql.InRange, nil
 	case GeometryValue:
 		if val.GetGeometry().Type() != "Point" {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("PointType.Convert")
 		}
-		return Point{BaseGeometry: BaseGeometry{Geometry: val.GetGeometry()}}, sql.InRange, nil
+		point := Point{BaseGeometry: BaseGeometry{Geometry: val.GetGeometry()}}
+		return point, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := val.UnwrapAny(ctx)
 		if err != nil {

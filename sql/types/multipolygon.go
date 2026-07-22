@@ -63,15 +63,13 @@ func (t MultiPolygonType) Convert(ctx context.Context, v interface{}) (interface
 		// if err := t.MatchSRID(buf); err != nil {
 		// 	return nil, sql.InRange, err
 		// }
-		if err := t.MatchSRID(buf); err != nil {
-			return nil, sql.InRange, err
-		}
 		return buf, sql.InRange, nil
 	case GeometryValue:
 		if buf.GetGeometry().Type() != "MultiPolygon" {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("MultiPolygon.Convert")
 		}
-		return MultiPolygon{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}, sql.InRange, nil
+		mpoly := MultiPolygon{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		return mpoly, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
 		if err != nil {

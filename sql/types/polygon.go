@@ -50,13 +50,11 @@ func (t PolygonType) Convert(ctx context.Context, v interface{}) (interface{}, s
 	case nil:
 		return nil, sql.InRange, nil
 	case []byte:
-		poly, _, err := GeometryType{}.Convert(ctx, buf)
+		polygon, _, err := GeometryType{}.Convert(ctx, buf)
 		if sql.ErrInvalidGISData.Is(err) {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("PolygonType.Convert")
-		} else if err != nil {
-			return poly, sql.InRange, err
 		}
-		return poly, sql.InRange, nil
+		return polygon, sql.InRange, nil
 	case string:
 		return t.Convert(ctx, []byte(buf))
 	case Polygon:
@@ -65,15 +63,13 @@ func (t PolygonType) Convert(ctx context.Context, v interface{}) (interface{}, s
 		// if err := t.MatchSRID(buf); err != nil {
 		// 	return nil, sql.InRange, err
 		// }
-		if err := t.MatchSRID(buf); err != nil {
-			return nil, sql.InRange, err
-		}
 		return buf, sql.InRange, nil
 	case GeometryValue:
 		if buf.GetGeometry().Type() != "Polygon" {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("PolygonType.Convert")
 		}
-		return Polygon{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}, sql.InRange, nil
+		polygon := Polygon{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		return polygon, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
 		if err != nil {

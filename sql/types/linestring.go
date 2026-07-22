@@ -68,7 +68,8 @@ func (t LineStringType) Convert(ctx context.Context, v interface{}) (interface{}
 		if buf.GetGeometry().Type() != "LineString" {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("LineStringType.Convert")
 		}
-		return LineString{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}, sql.InRange, nil
+		line := LineString{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		return line, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
 		if err != nil {
