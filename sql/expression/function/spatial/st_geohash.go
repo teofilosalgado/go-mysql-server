@@ -20,8 +20,8 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
-	"github.com/twpayne/go-geos"
 )
 
 const base32 = "0123456789bcdefghjkmnpqrstuvwxyz"
@@ -348,7 +348,8 @@ func (p *PointFromGeoHash) Eval(ctx *sql.Context, row sql.Row) (interface{}, err
 		return nil, err
 	}
 
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	result := geosContext.NewPoint([]float64{lon, lat})
 	result = result.SetSRID(int(srid))
 	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: result}}, nil

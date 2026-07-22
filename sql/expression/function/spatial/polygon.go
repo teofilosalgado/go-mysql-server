@@ -19,8 +19,8 @@ import (
 	"strings"
 
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
-	"github.com/twpayne/go-geos"
 
 	"github.com/dolthub/go-mysql-server/sql"
 )
@@ -104,7 +104,8 @@ func (p *Polygon) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 			return nil, sql.ErrIllegalGISValue.New(v)
 		}
 	}
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	geometry := geosContext.NewPolygon(coordinates)
 	return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }

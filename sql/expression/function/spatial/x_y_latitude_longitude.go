@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/twpayne/go-geos"
 	errors "gopkg.in/src-d/go-errors.v1"
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -127,7 +127,8 @@ func (s *STX) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with new X and old Y
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	result := geosContext.NewPoint([]float64{_x.(float64), _p.Geometry.Y()})
 	result.SetSRID(_p.Geometry.SRID())
 
@@ -233,7 +234,8 @@ func (s *STY) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with old X and new Ys
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	result := geosContext.NewPoint([]float64{_p.Geometry.X(), _y.(float64)})
 	result.SetSRID(_p.Geometry.SRID())
 
@@ -349,7 +351,8 @@ func (l *Longitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with new X and old Y
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	result := geosContext.NewPoint([]float64{_x, _p.Geometry.X()})
 	result.SetSRID(_p.Geometry.SRID())
 	return result, nil
@@ -460,7 +463,8 @@ func (l *Latitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with old X and new Y
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	result := geosContext.NewPoint([]float64{_p.Geometry.X(), _y})
 	result.SetSRID(_p.Geometry.SRID())
 	return result, nil

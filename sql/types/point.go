@@ -19,8 +19,8 @@ import (
 	"reflect"
 
 	"github.com/dolthub/go-mysql-server/sql"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/vitess/go/sqltypes"
-	"github.com/twpayne/go-geos"
 )
 
 // PointType represents the POINT type.
@@ -107,7 +107,8 @@ func (t PointType) String() string {
 
 // Zero implements Type interface.
 func (t PointType) Zero() interface{} {
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	return Point{BaseGeometry{Geometry: geosContext.NewEmptyPoint()}}
 }
 

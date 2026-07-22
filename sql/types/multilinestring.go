@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/dolthub/go-mysql-server/sql"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/vitess/go/sqltypes"
 	"github.com/twpayne/go-geos"
 )
@@ -109,7 +110,8 @@ func (t MultiLineStringType) ValueType() reflect.Type {
 
 // Zero implements Type interface.
 func (t MultiLineStringType) Zero() interface{} {
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	return MultiLineString{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDLineString)}}
 }
 

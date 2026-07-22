@@ -30,6 +30,7 @@ import (
 	"gopkg.in/src-d/go-errors.v1"
 
 	"github.com/dolthub/go-mysql-server/sql"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 )
 
 // GeometryType represents the GEOMETRY type.
@@ -81,7 +82,8 @@ func (bg BaseGeometry) Swap() GeometryValue {
 	sourceGeomWKT := bg.Geometry.ToWKT()
 	swappedGeomWKT := swapRegex.ReplaceAllString(sourceGeomWKT, "$2 $1")
 
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	swappedGeom, err := geosContext.NewGeomFromWKT(swappedGeomWKT)
 	if err != nil {
 		return bg
@@ -181,7 +183,8 @@ func deserializeWKB(mySQLBytes []byte, srid int, wkbGeometryTypeId int) (*geos.G
 	binary.LittleEndian.PutUint32(wkb[1:5], uint32(wkbGeometryTypeId))
 	copy(wkb[5:], mySQLBytes)
 
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	geometry, err := geosContext.NewGeomFromWKB(wkb)
 	if err != nil {
 		return nil, fmt.Errorf("error while deserializing WKB: %w", err)

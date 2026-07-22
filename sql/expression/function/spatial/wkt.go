@@ -20,6 +20,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 	"github.com/twpayne/go-geos"
 )
@@ -193,7 +194,8 @@ func WKTToGeom(ctx *sql.Context, row sql.Row, exprs []sql.Expression, expectedGe
 		return nil, sql.ErrInvalidGISData.New()
 	}
 
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	geomFromWKT, err := geosContext.NewGeomFromWKT(parsedWKT)
 	if err != nil {
 		return nil, err

@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 	"github.com/twpayne/go-geos"
 
@@ -101,7 +102,8 @@ func (p *MultiPolygon) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) 
 		geometries[i] = g.Geometry
 	}
 
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	geometry := geosContext.NewCollection(geos.TypeIDPolygon, geometries)
 	return types.MultiPolygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }
