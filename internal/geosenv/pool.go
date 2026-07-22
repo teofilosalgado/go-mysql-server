@@ -17,5 +17,8 @@ func GetContext() *geos.Context {
 }
 
 func ReleaseContext(ctx *geos.Context) {
+	if ctx == nil {
+		return
+	}
 	contextPool.Put(ctx)
 }
