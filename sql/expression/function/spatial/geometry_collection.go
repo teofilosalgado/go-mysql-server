@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 	"github.com/twpayne/go-geos"
 
@@ -91,7 +92,8 @@ func (g *GeomColl) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		geometries[i] = g.GetGeometry()
 	}
 
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	geometry := geosContext.NewCollection(geos.TypeIDGeometryCollection, geometries)
 	return types.GeomColl{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
 }

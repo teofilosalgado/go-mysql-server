@@ -19,8 +19,8 @@ import (
 	"reflect"
 
 	"github.com/dolthub/go-mysql-server/sql"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/vitess/go/sqltypes"
-	"github.com/twpayne/go-geos"
 )
 
 // PolygonType represents the POLYGON type.
@@ -109,7 +109,8 @@ func (t PolygonType) ValueType() reflect.Type {
 
 // Zero implements Type interface.
 func (t PolygonType) Zero() interface{} {
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	return Polygon{BaseGeometry{Geometry: geosContext.NewEmptyPolygon()}}
 }
 

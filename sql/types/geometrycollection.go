@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/dolthub/go-mysql-server/sql"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/vitess/go/sqltypes"
 	"github.com/twpayne/go-geos"
 )
@@ -124,7 +125,8 @@ func (t GeomCollType) ValueType() reflect.Type {
 
 // Zero implements Type interface.
 func (t GeomCollType) Zero() interface{} {
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	return MultiPolygon{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDGeometryCollection)}}
 }
 

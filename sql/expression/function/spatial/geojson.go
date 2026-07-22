@@ -8,8 +8,8 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
-	"github.com/twpayne/go-geos"
 )
 
 // AsGeoJSON is a function that returns a point type from a WKT string
@@ -75,7 +75,8 @@ func (g *AsGeoJSON) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidArgumentType.New(g.FunctionName())
 	}
 
-	geosContext := geos.NewContext()
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
 	geoJSONWriter := geosContext.NewGeoJSONWriter()
 	geoJSONString := geoJSONWriter.WriteGeometry(geometry.GetGeometry(), 0)
 
@@ -186,7 +187,10 @@ func (g *GeomFromGeoJSON) Eval(ctx *sql.Context, row sql.Row) (interface{}, erro
 	if !ok {
 		return nil, nil
 	}
-	geosContext := geos.NewContext()
+
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+
 	geoJSONReader := geosContext.NewGeoJSONReader()
 	geometry, err := geoJSONReader.ReadGeometry(geoJSONString)
 
