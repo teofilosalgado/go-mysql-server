@@ -12,7 +12,7 @@ var contextPool = sync.Pool{
 	},
 }
 
-func GetContext() *geos.Context {
+func AcquireContext() *geos.Context {
 	return contextPool.Get().(*geos.Context)
 }
 
