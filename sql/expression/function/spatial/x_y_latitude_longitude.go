@@ -367,7 +367,7 @@ var _ sql.FunctionExpression = (*Latitude)(nil)
 var _ sql.CollationCoercible = (*Latitude)(nil)
 
 // NewLatitude creates a new ST_LATITUDE expression.
-func NewLatitude(args ...sql.Expression) (sql.Expression, error) {
+func NewLatitude(ctx *sql.Context, args ...sql.Expression) (sql.Expression, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, sql.ErrInvalidArgumentNumber.New("ST_LATITUDE", "1 or 2", len(args))
 	}
@@ -388,9 +388,9 @@ func (l *Latitude) Description() string {
 func (l *Latitude) Type(ctx *sql.Context) sql.Type {
 	if len(l.ChildExpressions) == 1 {
 		return types.Float64
-	} else {
-		return types.PointType{}
 	}
+
+	return types.PointType{}
 }
 
 // CollationCoercibility implements the interface sql.CollationCoercible.
@@ -408,7 +408,7 @@ func (l *Latitude) String() string {
 
 // WithChildren implements the Expression interface.
 func (l *Latitude) WithChildren(ctx *sql.Context, children ...sql.Expression) (sql.Expression, error) {
-	return NewLatitude(children...)
+	return NewLatitude(ctx, children...)
 }
 
 // Eval implements the sql.Expression interface.
