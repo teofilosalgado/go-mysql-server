@@ -21,6 +21,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 )
 
 // Intersects is a function that returns true if the two geometries intersect
@@ -107,5 +108,15 @@ func (i *Intersects) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	return g1.GetGeometry().Intersects(g2.GetGeometry()), nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry1, err := g1.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	geometry2, err := g2.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	return geometry1.Intersects(geometry2), nil
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/expression/function/vector"
 	"github.com/dolthub/go-mysql-server/sql/fulltext"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/iters"
 	"github.com/dolthub/go-mysql-server/sql/sorters"
 	"github.com/dolthub/go-mysql-server/sql/transform"
@@ -1674,14 +1675,25 @@ func (t *IndexedTable) LookupPartitions(ctx *sql.Context, lookup sql.IndexLookup
 			return nil, sql.ErrInvalidGISData.New()
 		}
 
+		geosContext := geosenv.AcquireContext()
+		defer geosenv.ReleaseContext(geosContext)
+		minGeometry, err := minPoint.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		maxGeometry, err := maxPoint.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+
 		ord := memIdx.Exprs[0].(*expression.GetField).Index()
 		return spatialRangePartitionIter{
 			child: child.(*partitionIter),
 			ord:   ord,
-			minX:  minPoint.Geometry.X(),
-			minY:  minPoint.Geometry.Y(),
-			maxX:  maxPoint.Geometry.X(),
-			maxY:  maxPoint.Geometry.Y(),
+			minX:  minGeometry.X(),
+			minY:  minGeometry.Y(),
+			maxX:  maxGeometry.X(),
+			maxY:  maxGeometry.Y(),
 		}, nil
 	}
 

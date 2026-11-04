@@ -77,8 +77,12 @@ func (g *AsGeoJSON) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
+	geosGeometry, err := geometry.GetGeometry(geosContext)
+	if err != nil {
+		return nil, sql.ErrInvalidArgumentType.New(g.FunctionName())
+	}
 	geoJSONWriter := geosContext.NewGeoJSONWriter()
-	geoJSONString := geoJSONWriter.WriteGeometry(geometry.GetGeometry(), 0)
+	geoJSONString := geoJSONWriter.WriteGeometry(geosGeometry, 0)
 
 	geoJSONMap := make(map[string]interface{})
 	err = json.Unmarshal([]byte(geoJSONString), &geoJSONMap)
@@ -193,9 +197,11 @@ func (g *GeomFromGeoJSON) Eval(ctx *sql.Context, row sql.Row) (interface{}, erro
 
 	geoJSONReader := geosContext.NewGeoJSONReader()
 	geometry, err := geoJSONReader.ReadGeometry(geoJSONString)
+	if err != nil {
+		return nil, err
+	}
 
-	res := types.BaseGeometry{Geometry: geometry}
-	res.Geometry = res.Geometry.SetSRID(4326)
+	res := types.BaseGeometry{WKB: geometry.ToWKB(), SRID: 4326}
 	if len(g.ChildExpressions) == 1 {
 		return res, nil
 	}
@@ -225,7 +231,7 @@ func (g *GeomFromGeoJSON) Eval(ctx *sql.Context, row sql.Row) (interface{}, erro
 		return nil, err
 	}
 	srid := s.(int)
-	res.Geometry = res.Geometry.SetSRID(srid)
+	res.SRID = srid
 
 	return res, nil
 }

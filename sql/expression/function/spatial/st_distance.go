@@ -21,6 +21,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -99,7 +100,18 @@ func (d *Distance) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidGISData.New(d.FunctionName())
 	}
 
-	distance := geom1.GetGeometry().Distance(geom2.GetGeometry())
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geosGeom1, err := geom1.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	geosGeom2, err := geom2.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+
+	distance := geosGeom1.Distance(geosGeom2)
 	if len(d.ChildExpressions) == 2 {
 		return distance, nil
 	}

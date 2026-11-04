@@ -66,10 +66,11 @@ func (t MultiPointType) Convert(ctx context.Context, v interface{}) (interface{}
 		// }
 		return buf, sql.InRange, nil
 	case GeometryValue:
-		if buf.GetGeometry().Type() != "MultiPoint" {
+		_, geomType, err := DeserializeWKBHeader(buf.GetWKB())
+		if err != nil || geomType != WKBMultiPointID {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("MultiPointType.Convert")
 		}
-		multipoint := MultiPoint{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		multipoint := MultiPoint{BaseGeometry: BaseGeometry{WKB: buf.GetWKB(), SRID: buf.GetSRID()}}
 		return multipoint, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
@@ -112,7 +113,8 @@ func (t MultiPointType) ValueType() reflect.Type {
 func (t MultiPointType) Zero() interface{} {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
-	return MultiPoint{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDPoint)}}
+	geometry := geosContext.NewEmptyCollection(geos.TypeIDPoint)
+	return MultiPoint{BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}
 }
 
 // SetSRID implements SpatialColumnType interface.

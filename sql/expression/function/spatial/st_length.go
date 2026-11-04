@@ -21,6 +21,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -90,7 +91,13 @@ func (s *STLength) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	if len(s.ChildExpressions) == 1 {
-		return gv.GetGeometry().Length(), nil
+		geosContext := geosenv.AcquireContext()
+		defer geosenv.ReleaseContext(geosContext)
+		geometry, err := gv.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		return geometry.Length(), nil
 	}
 
 	unit, err := s.ChildExpressions[1].Eval(ctx, row)

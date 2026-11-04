@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -114,10 +115,18 @@ func (p *PointN) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidArgument.New(p.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := l.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+
 	// N is 1-based; out-of-range returns NULL
-	if idx < 1 || idx > l.Geometry.NumCoordinates() {
+	if idx < 1 || idx > geometry.NumCoordinates() {
 		return nil, nil
 	}
 
-	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: l.Geometry.Point(idx - 1)}}, nil
+	point := geometry.Point(idx - 1)
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: point.ToWKB(), SRID: point.SRID()}}, nil
 }

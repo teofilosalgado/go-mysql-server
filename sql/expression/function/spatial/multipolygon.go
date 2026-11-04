@@ -97,13 +97,18 @@ func (p *MultiPolygon) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) 
 		}
 	}
 
-	var geometries = make([]*geos.Geom, len(polys))
-	for i, g := range polys {
-		geometries[i] = g.Geometry
-	}
-
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
+
+	var geometries = make([]*geos.Geom, len(polys))
+	for i, g := range polys {
+		geometry, err := g.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		geometries[i] = geometry
+	}
+
 	geometry := geosContext.NewCollection(geos.TypeIDPolygon, geometries)
-	return types.MultiPolygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.MultiPolygon{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }

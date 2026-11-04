@@ -76,6 +76,9 @@ func (l *LineString) WithChildren(ctx *sql.Context, children ...sql.Expression) 
 
 // Eval implements the sql.Expression interface.
 func (l *LineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+
 	// Allocate array of points
 	var coordinates = make([][]float64, len(l.ChildExpressions))
 
@@ -93,16 +96,18 @@ func (l *LineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		}
 		switch v := gv.(type) {
 		case types.Point:
+			point, err := v.GetGeometry(geosContext)
+			if err != nil {
+				return nil, err
+			}
 			coordinates[i] = make([]float64, 2)
-			coordinates[i][0] = v.Geometry.X()
-			coordinates[i][1] = v.Geometry.Y()
+			coordinates[i][0] = point.X()
+			coordinates[i][1] = point.Y()
 		default:
 			return nil, sql.ErrIllegalGISValue.New(v)
 		}
 	}
 
-	geosContext := geosenv.AcquireContext()
-	defer geosenv.ReleaseContext(geosContext)
 	geometry := geosContext.NewLineString(coordinates)
-	return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.LineString{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }

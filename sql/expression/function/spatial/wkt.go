@@ -93,7 +93,13 @@ func (p *AsWKT) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidArgument.New(p.FunctionName())
 	}
 
-	return gv.GetGeometry().ToWKT(), nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := gv.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	return geometry.ToWKT(), nil
 }
 
 // GeomFromText is a function that returns a point type from a WKT string
@@ -147,31 +153,31 @@ func (g *GeomFromText) WithChildren(ctx *sql.Context, children ...sql.Expression
 }
 
 func WKTToPoint(geometry *geos.Geom) (types.Point, error) {
-	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }
 
 func WKTToLineString(geometry *geos.Geom) (types.LineString, error) {
-	return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.LineString{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }
 
 func WKTToPolygon(geometry *geos.Geom) (types.Polygon, error) {
-	return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.Polygon{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }
 
 func WKTToMultiPoint(geometry *geos.Geom) (types.MultiPoint, error) {
-	return types.MultiPoint{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.MultiPoint{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }
 
 func WKTToMultiLineString(geometry *geos.Geom) (types.MultiLineString, error) {
-	return types.MultiLineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.MultiLineString{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }
 
 func WKTToMultiPolygon(geometry *geos.Geom) (types.MultiPolygon, error) {
-	return types.MultiPolygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.MultiPolygon{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }
 
 func WKTToGeomColl(geometry *geos.Geom) (types.GeomColl, error) {
-	return types.GeomColl{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.GeomColl{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }
 
 // WKTToGeom expects a string in WKT format, and converts it to a geometry type

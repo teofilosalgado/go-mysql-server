@@ -97,13 +97,18 @@ func (p *MultiLineString) Eval(ctx *sql.Context, row sql.Row) (interface{}, erro
 		}
 	}
 
-	var geometries = make([]*geos.Geom, len(lines))
-	for i, g := range lines {
-		geometries[i] = g.Geometry
-	}
-
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
+
+	var geometries = make([]*geos.Geom, len(lines))
+	for i, g := range lines {
+		geometry, err := g.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		geometries[i] = geometry
+	}
+
 	geometry := geosContext.NewCollection(geos.TypeIDLineString, geometries)
-	return types.MultiLineString{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.MultiLineString{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }

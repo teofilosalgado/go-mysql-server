@@ -1236,10 +1236,10 @@ func (b *indexScanRangeBuilder) rangeBuildSpatialLeaf(f *iScanLeaf, inScan bool)
 	minX, minY, maxX, maxY := g.BBox()
 
 	lowerGeom := geosContext.NewPoint([]float64{minX, minY})
-	lower := types.Point{BaseGeometry: types.BaseGeometry{Geometry: lowerGeom}}
+	lower := types.Point{BaseGeometry: types.BaseGeometry{WKB: lowerGeom.ToWKB(), SRID: lowerGeom.SRID()}}
 
 	upperGeom := geosContext.NewPoint([]float64{maxX, maxY})
-	upper := types.Point{BaseGeometry: types.BaseGeometry{Geometry: upperGeom}}
+	upper := types.Point{BaseGeometry: types.BaseGeometry{WKB: upperGeom.ToWKB(), SRID: upperGeom.SRID()}}
 
 	typ := f.typ
 	return sql.MySQLRangeCollection{{{

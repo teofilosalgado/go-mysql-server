@@ -68,10 +68,11 @@ func (t PointType) Convert(ctx context.Context, v interface{}) (interface{}, sql
 		// }
 		return val, sql.InRange, nil
 	case GeometryValue:
-		if val.GetGeometry().Type() != "Point" {
+		_, geomType, err := DeserializeWKBHeader(val.GetWKB())
+		if err != nil || geomType != WKBPointID {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("PointType.Convert")
 		}
-		point := Point{BaseGeometry: BaseGeometry{Geometry: val.GetGeometry()}}
+		point := Point{BaseGeometry: BaseGeometry{WKB: val.GetWKB(), SRID: val.GetSRID()}}
 		return point, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := val.UnwrapAny(ctx)
@@ -109,7 +110,8 @@ func (t PointType) String() string {
 func (t PointType) Zero() interface{} {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
-	return Point{BaseGeometry{Geometry: geosContext.NewEmptyPoint()}}
+	geometry := geosContext.NewEmptyPoint()
+	return Point{BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}
 }
 
 // ValueType implements Type interface.
