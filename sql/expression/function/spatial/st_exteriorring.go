@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -90,5 +91,12 @@ func (e *ExteriorRing) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) 
 		return nil, sql.ErrInvalidArgument.New(e.FunctionName())
 	}
 
-	return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: gv.GetGeometry().ExteriorRing()}}, nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := gv.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	ring := geometry.ExteriorRing()
+	return types.LineString{BaseGeometry: types.BaseGeometry{WKB: ring.ToWKB(), SRID: ring.SRID()}}, nil
 }

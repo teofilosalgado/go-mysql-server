@@ -82,10 +82,11 @@ func (t GeomCollType) Convert(ctx context.Context, v interface{}) (interface{}, 
 		}
 		return val, sql.InRange, nil
 	case GeometryValue:
-		if val.GetGeometry().Type() != "GeometryCollection" {
+		_, geomType, err := DeserializeWKBHeader(val.GetWKB())
+		if err != nil || geomType != WKBGeomCollID {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("GeomCollType.Convert")
 		}
-		return GeomColl{BaseGeometry: BaseGeometry{Geometry: val.GetGeometry()}}, sql.InRange, nil
+		return GeomColl{BaseGeometry: BaseGeometry{WKB: val.GetWKB(), SRID: val.GetSRID()}}, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := val.UnwrapAny(ctx)
 		if err != nil {
@@ -127,7 +128,8 @@ func (t GeomCollType) ValueType() reflect.Type {
 func (t GeomCollType) Zero() interface{} {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
-	return MultiPolygon{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDGeometryCollection)}}
+	geometry := geosContext.NewEmptyCollection(geos.TypeIDGeometryCollection)
+	return GeomColl{BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}
 }
 
 // SetSRID implements SpatialColumnType interface.

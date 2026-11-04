@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -109,5 +110,15 @@ func (c *Contains) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	return g1.GetGeometry().Contains(g2.GetGeometry()), nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry1, err := g1.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	geometry2, err := g2.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	return geometry1.Contains(geometry2), nil
 }

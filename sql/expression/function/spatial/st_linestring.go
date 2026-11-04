@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -88,7 +89,14 @@ func (s *StartPoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	return l.Geometry.Geometry(0), nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := l.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	point := geometry.Geometry(0)
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: point.ToWKB(), SRID: point.SRID()}}, nil
 }
 
 // EndPoint is a function that returns the last point of a LineString
@@ -157,7 +165,14 @@ func (e *EndPoint) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, nil
 	}
 
-	return l.Geometry.Geometry(l.Geometry.NumGeometries() - 1), nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := l.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	point := geometry.Geometry(geometry.NumGeometries() - 1)
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: point.ToWKB(), SRID: point.SRID()}}, nil
 }
 
 // IsClosed is a function that checks if a LineString or MultiLineString is close
@@ -221,12 +236,23 @@ func (i *IsClosed) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidGISData.New(i.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+
 	switch g := gv.(type) {
 	case types.LineString:
-		return g.Geometry.IsClosed(), nil
+		geometry, err := g.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		return geometry.IsClosed(), nil
 	case types.MultiLineString:
-		for n := range g.Geometry.NumGeometries() {
-			if !g.Geometry.Geometry(n).IsClosed() {
+		geometry, err := g.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		for n := range geometry.NumGeometries() {
+			if !geometry.Geometry(n).IsClosed() {
 				return false, nil
 			}
 		}

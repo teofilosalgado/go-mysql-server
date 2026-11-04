@@ -65,10 +65,11 @@ func (t PolygonType) Convert(ctx context.Context, v interface{}) (interface{}, s
 		// }
 		return buf, sql.InRange, nil
 	case GeometryValue:
-		if buf.GetGeometry().Type() != "Polygon" {
+		_, geomType, err := DeserializeWKBHeader(buf.GetWKB())
+		if err != nil || geomType != WKBPolyID {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("PolygonType.Convert")
 		}
-		polygon := Polygon{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		polygon := Polygon{BaseGeometry: BaseGeometry{WKB: buf.GetWKB(), SRID: buf.GetSRID()}}
 		return polygon, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
@@ -111,7 +112,8 @@ func (t PolygonType) ValueType() reflect.Type {
 func (t PolygonType) Zero() interface{} {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
-	return Polygon{BaseGeometry{Geometry: geosContext.NewEmptyPolygon()}}
+	geometry := geosContext.NewEmptyPolygon()
+	return Polygon{BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}
 }
 
 // SetSRID implements SpatialColumnType interface.

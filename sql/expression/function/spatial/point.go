@@ -118,5 +118,5 @@ func (p *Point) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
 	geometry := geosContext.NewPoint([]float64{_x.(float64), _y.(float64)})
-	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }

@@ -76,6 +76,9 @@ func (p *Polygon) WithChildren(ctx *sql.Context, children ...sql.Expression) (sq
 
 // Eval implements the sql.Expression interface.
 func (p *Polygon) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+
 	// Allocate array of lines
 	var coordinates = make([][][]float64, len(p.ChildExpressions))
 
@@ -93,8 +96,12 @@ func (p *Polygon) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		}
 		switch v := gv.(type) {
 		case types.LineString:
-			coordinates[i] = make([][]float64, 2)
-			coordinateSequence := v.Geometry.CoordSeq()
+			line, err := v.GetGeometry(geosContext)
+			if err != nil {
+				return nil, err
+			}
+			coordinateSequence := line.CoordSeq()
+			coordinates[i] = make([][]float64, coordinateSequence.Size())
 			for j := range coordinateSequence.Size() {
 				coordinates[i][j] = make([]float64, 2)
 				coordinates[i][j][0] = coordinateSequence.X(j)
@@ -104,8 +111,6 @@ func (p *Polygon) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 			return nil, sql.ErrIllegalGISValue.New(v)
 		}
 	}
-	geosContext := geosenv.AcquireContext()
-	defer geosenv.ReleaseContext(geosContext)
 	geometry := geosContext.NewPolygon(coordinates)
-	return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: geometry}}, nil
+	return types.Polygon{BaseGeometry: types.BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}, nil
 }

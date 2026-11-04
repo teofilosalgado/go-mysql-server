@@ -104,9 +104,16 @@ func (s *STX) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, ErrInvalidType.New(s.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := _p.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+
 	// If just one argument, return X
 	if len(s.ChildExpressions) == 1 {
-		return _p.Geometry.X(), nil
+		return geometry.X(), nil
 	}
 
 	// Evaluate second argument
@@ -127,12 +134,10 @@ func (s *STX) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with new X and old Y
-	geosContext := geosenv.AcquireContext()
-	defer geosenv.ReleaseContext(geosContext)
-	result := geosContext.NewPoint([]float64{_x.(float64), _p.Geometry.Y()})
-	result.SetSRID(_p.Geometry.SRID())
+	result := geosContext.NewPoint([]float64{_x.(float64), geometry.Y()})
+	result.SetSRID(geometry.SRID())
 
-	return result, nil
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: result.ToWKB(), SRID: result.SRID()}}, nil
 }
 
 // STY is a function that returns the y value from a given point.
@@ -211,9 +216,16 @@ func (s *STY) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, ErrInvalidType.New(s.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := _p.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+
 	// If just one argument, return Y
 	if len(s.ChildExpressions) == 1 {
-		return _p.Geometry.Y(), nil
+		return geometry.Y(), nil
 	}
 
 	// Evaluate second argument
@@ -234,12 +246,10 @@ func (s *STY) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with old X and new Ys
-	geosContext := geosenv.AcquireContext()
-	defer geosenv.ReleaseContext(geosContext)
-	result := geosContext.NewPoint([]float64{_p.Geometry.X(), _y.(float64)})
-	result.SetSRID(_p.Geometry.SRID())
+	result := geosContext.NewPoint([]float64{geometry.X(), _y.(float64)})
+	result.SetSRID(geometry.SRID())
 
-	return result, nil
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: result.ToWKB(), SRID: result.SRID()}}, nil
 }
 
 // Longitude is a function that returns the x value from a given point.
@@ -322,9 +332,16 @@ func (l *Longitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, ErrInvalidType.New(l.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := _p.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+
 	// If just one argument, return X
 	if len(l.ChildExpressions) == 1 {
-		return _p.Geometry.X(), nil
+		return geometry.X(), nil
 	}
 
 	// Evaluate second argument
@@ -351,11 +368,9 @@ func (l *Longitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with new X and old Y
-	geosContext := geosenv.AcquireContext()
-	defer geosenv.ReleaseContext(geosContext)
-	result := geosContext.NewPoint([]float64{_x, _p.Geometry.X()})
-	result.SetSRID(_p.Geometry.SRID())
-	return result, nil
+	result := geosContext.NewPoint([]float64{_x, geometry.X()})
+	result.SetSRID(geometry.SRID())
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: result.ToWKB(), SRID: result.SRID()}}, nil
 }
 
 // Latitude is a function that returns the x value from a given point.
@@ -434,9 +449,16 @@ func (l *Latitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, ErrInvalidType.New(l.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := _p.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+
 	// If just one argument, return Y
 	if len(l.ChildExpressions) == 1 {
-		return _p.Geometry.Y(), nil
+		return geometry.Y(), nil
 	}
 
 	// Evaluate second argument
@@ -463,9 +485,7 @@ func (l *Latitude) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 	}
 
 	// Create point with old X and new Y
-	geosContext := geosenv.AcquireContext()
-	defer geosenv.ReleaseContext(geosContext)
-	result := geosContext.NewPoint([]float64{_p.Geometry.X(), _y})
-	result.SetSRID(_p.Geometry.SRID())
-	return result, nil
+	result := geosContext.NewPoint([]float64{geometry.X(), _y})
+	result.SetSRID(geometry.SRID())
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: result.ToWKB(), SRID: result.SRID()}}, nil
 }

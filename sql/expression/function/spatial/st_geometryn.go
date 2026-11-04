@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -110,28 +111,51 @@ func (g *GeometryN) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidGISData.New(g.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+
 	// N is 1-based; out-of-range returns NULL
 	switch v := gv.(type) {
 	case types.GeomColl:
-		if idx < 1 || idx > v.Geometry.NumGeometries() {
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		if idx < 1 || idx > geometry.NumGeometries() {
 			return nil, nil
 		}
-		return types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}, nil
+		component := geometry.Geometry(idx - 1)
+		return types.BaseGeometry{WKB: component.ToWKB(), SRID: component.SRID()}, nil
 	case types.MultiPoint:
-		if idx < 1 || idx > v.Geometry.NumGeometries() {
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		if idx < 1 || idx > geometry.NumGeometries() {
 			return nil, nil
 		}
-		return types.Point{BaseGeometry: types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}}, nil
+		component := geometry.Geometry(idx - 1)
+		return types.Point{BaseGeometry: types.BaseGeometry{WKB: component.ToWKB(), SRID: component.SRID()}}, nil
 	case types.MultiLineString:
-		if idx < 1 || idx > v.Geometry.NumGeometries() {
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		if idx < 1 || idx > geometry.NumGeometries() {
 			return nil, nil
 		}
-		return types.LineString{BaseGeometry: types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}}, nil
+		component := geometry.Geometry(idx - 1)
+		return types.LineString{BaseGeometry: types.BaseGeometry{WKB: component.ToWKB(), SRID: component.SRID()}}, nil
 	case types.MultiPolygon:
-		if idx < 1 || idx > v.Geometry.NumGeometries() {
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		if idx < 1 || idx > geometry.NumGeometries() {
 			return nil, nil
 		}
-		return types.Polygon{BaseGeometry: types.BaseGeometry{Geometry: v.Geometry.Geometry(idx - 1)}}, nil
+		component := geometry.Geometry(idx - 1)
+		return types.Polygon{BaseGeometry: types.BaseGeometry{WKB: component.ToWKB(), SRID: component.SRID()}}, nil
 	default:
 		// Non-collection types: return NULL per MySQL behavior
 		return nil, nil

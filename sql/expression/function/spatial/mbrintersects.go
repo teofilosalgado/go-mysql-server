@@ -21,6 +21,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 )
 
 // MBRIntersects is a function that returns 1 or 0 to indicate whether the minimum bounding rectangles of the two geometries g1 and g2 intersect.
@@ -107,5 +108,15 @@ func (i *MBRIntersects) Eval(ctx *sql.Context, row sql.Row) (interface{}, error)
 		return nil, nil
 	}
 
-	return g1.GetGeometry().Envelope().Intersects(g2.GetGeometry().Envelope()), nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry1, err := g1.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	geometry2, err := g2.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	return geometry1.Envelope().Intersects(geometry2.Envelope()), nil
 }

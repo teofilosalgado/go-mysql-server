@@ -66,10 +66,11 @@ func (t MultiLineStringType) Convert(ctx context.Context, v interface{}) (interf
 		// }
 		return buf, sql.InRange, nil
 	case GeometryValue:
-		if buf.GetGeometry().Type() != "MultiLinestring" {
+		_, geomType, err := DeserializeWKBHeader(buf.GetWKB())
+		if err != nil || geomType != WKBMultiLineID {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("MultiLineString.Convert")
 		}
-		mline := MultiLineString{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		mline := MultiLineString{BaseGeometry: BaseGeometry{WKB: buf.GetWKB(), SRID: buf.GetSRID()}}
 		return mline, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
@@ -112,7 +113,8 @@ func (t MultiLineStringType) ValueType() reflect.Type {
 func (t MultiLineStringType) Zero() interface{} {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
-	return MultiLineString{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDLineString)}}
+	geometry := geosContext.NewEmptyCollection(geos.TypeIDLineString)
+	return MultiLineString{BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}
 }
 
 // SetSRID implements SpatialColumnType interface.

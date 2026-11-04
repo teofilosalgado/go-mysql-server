@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 	"github.com/twpayne/go-geos"
 )
@@ -74,8 +75,18 @@ func (p *Dimension) WithChildren(ctx *sql.Context, children ...sql.Expression) (
 }
 
 func FindDimension(bg types.GeometryValue) interface{} {
-	geometryType := bg.GetGeometry().TypeID()
-	switch geometryType {
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+
+	geometry, err := bg.GetGeometry(geosContext)
+	if err != nil {
+		return nil
+	}
+	return findDimension(geometry)
+}
+
+func findDimension(geometry *geos.Geom) interface{} {
+	switch geometry.TypeID() {
 	case geos.TypeIDPoint, geos.TypeIDMultiPoint:
 		return 0
 	case geos.TypeIDLineString, geos.TypeIDMultiLineString:
@@ -83,11 +94,10 @@ func FindDimension(bg types.GeometryValue) interface{} {
 	case geos.TypeIDPolygon, geos.TypeIDMultiPolygon:
 		return 2
 	case geos.TypeIDGeometryCollection:
-		numGeometries := bg.GetGeometry().NumGeometries()
+		numGeometries := geometry.NumGeometries()
 		maxDimension := 0
 		for i := range numGeometries {
-			currentGeometry := bg.GetGeometry().Geometry(i)
-			currentGeometryDimension := FindDimension(types.BaseGeometry{Geometry: currentGeometry})
+			currentGeometryDimension := findDimension(geometry.Geometry(i))
 			if currentGeometryDimension == nil {
 				return nil
 			}
@@ -95,10 +105,10 @@ func FindDimension(bg types.GeometryValue) interface{} {
 				maxDimension = currentGeometryDimension.(int)
 			}
 		}
+		return maxDimension
 	default:
 		return nil
 	}
-	return nil
 }
 
 // Eval implements the sql.Expression interface.

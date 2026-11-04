@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -85,5 +86,11 @@ func (a *Area) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		return nil, sql.ErrInvalidArgument.New(a.FunctionName())
 	}
 
-	return gv.GetGeometry().Area(), nil
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+	geometry, err := gv.GetGeometry(geosContext)
+	if err != nil {
+		return nil, err
+	}
+	return geometry.Area(), nil
 }

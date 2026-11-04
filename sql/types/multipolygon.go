@@ -66,10 +66,11 @@ func (t MultiPolygonType) Convert(ctx context.Context, v interface{}) (interface
 		// }
 		return buf, sql.InRange, nil
 	case GeometryValue:
-		if buf.GetGeometry().Type() != "MultiPolygon" {
+		_, geomType, err := DeserializeWKBHeader(buf.GetWKB())
+		if err != nil || geomType != WKBMultiPolyID {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("MultiPolygon.Convert")
 		}
-		mpoly := MultiPolygon{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		mpoly := MultiPolygon{BaseGeometry: BaseGeometry{WKB: buf.GetWKB(), SRID: buf.GetSRID()}}
 		return mpoly, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
@@ -112,7 +113,8 @@ func (t MultiPolygonType) ValueType() reflect.Type {
 func (t MultiPolygonType) Zero() interface{} {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
-	return MultiPolygon{BaseGeometry{Geometry: geosContext.NewEmptyCollection(geos.TypeIDMultiPolygon)}}
+	geometry := geosContext.NewEmptyCollection(geos.TypeIDMultiPolygon)
+	return MultiPolygon{BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}
 }
 
 // SetSRID implements SpatialColumnType interface.

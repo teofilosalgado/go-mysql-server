@@ -65,10 +65,11 @@ func (t LineStringType) Convert(ctx context.Context, v interface{}) (interface{}
 		// }
 		return buf, sql.InRange, nil
 	case GeometryValue:
-		if buf.GetGeometry().Type() != "LineString" {
+		_, geomType, err := DeserializeWKBHeader(buf.GetWKB())
+		if err != nil || geomType != WKBLineID {
 			return nil, sql.InRange, sql.ErrInvalidGISData.New("LineStringType.Convert")
 		}
-		line := LineString{BaseGeometry: BaseGeometry{Geometry: buf.GetGeometry()}}
+		line := LineString{BaseGeometry: BaseGeometry{WKB: buf.GetWKB(), SRID: buf.GetSRID()}}
 		return line, sql.InRange, nil
 	case sql.AnyWrapper:
 		unwrapped, err := buf.UnwrapAny(ctx)
@@ -111,7 +112,8 @@ func (t LineStringType) ValueType() reflect.Type {
 func (t LineStringType) Zero() interface{} {
 	geosContext := geosenv.AcquireContext()
 	defer geosenv.ReleaseContext(geosContext)
-	return LineString{BaseGeometry{Geometry: geosContext.NewEmptyLineString()}}
+	geometry := geosContext.NewEmptyLineString()
+	return LineString{BaseGeometry{WKB: geometry.ToWKB(), SRID: geometry.SRID()}}
 }
 
 // SetSRID implements SpatialColumnType interface.

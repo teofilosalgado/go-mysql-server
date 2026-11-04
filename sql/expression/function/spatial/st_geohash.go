@@ -146,9 +146,15 @@ func (g *GeoHash) Eval(ctx *sql.Context, row sql.Row) (interface{}, error) {
 		if !ok {
 			return nil, sql.ErrInvalidArgument.New(g.FunctionName())
 		}
+		geosContext := geosenv.AcquireContext()
+		defer geosenv.ReleaseContext(geosContext)
+		geometry, err := p.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
 		// For SRID 4326, X is longitude, Y is latitude
-		lon = p.Geometry.X()
-		lat = p.Geometry.Y()
+		lon = geometry.X()
+		lat = geometry.Y()
 
 		lenVal, err := g.ChildExpressions[1].Eval(ctx, row)
 		if err != nil {
@@ -352,7 +358,7 @@ func (p *PointFromGeoHash) Eval(ctx *sql.Context, row sql.Row) (interface{}, err
 	defer geosenv.ReleaseContext(geosContext)
 	result := geosContext.NewPoint([]float64{lon, lat})
 	result = result.SetSRID(int(srid))
-	return types.Point{BaseGeometry: types.BaseGeometry{Geometry: result}}, nil
+	return types.Point{BaseGeometry: types.BaseGeometry{WKB: result.ToWKB(), SRID: result.SRID()}}, nil
 }
 
 // LatFromGeoHash is a function that returns the latitude from a geohash string.

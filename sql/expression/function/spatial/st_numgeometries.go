@@ -19,6 +19,7 @@ import (
 
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/geosenv"
 	"github.com/dolthub/go-mysql-server/sql/types"
 )
 
@@ -89,17 +90,36 @@ func (n *NumGeometries) Eval(ctx *sql.Context, row sql.Row) (interface{}, error)
 		return nil, sql.ErrInvalidGISData.New(n.FunctionName())
 	}
 
+	geosContext := geosenv.AcquireContext()
+	defer geosenv.ReleaseContext(geosContext)
+
 	// For GeometryCollection, MultiPoint, MultiLineString, MultiPolygon: return component count
 	// For simple geometry types (Point, LineString, Polygon): return NULL per MySQL behavior
 	switch v := gv.(type) {
 	case types.GeomColl:
-		return v.Geometry.NumGeometries(), nil
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		return geometry.NumGeometries(), nil
 	case types.MultiPoint:
-		return v.Geometry.NumGeometries(), nil
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		return geometry.NumGeometries(), nil
 	case types.MultiLineString:
-		return v.Geometry.NumGeometries(), nil
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		return geometry.NumGeometries(), nil
 	case types.MultiPolygon:
-		return v.Geometry.NumGeometries(), nil
+		geometry, err := v.GetGeometry(geosContext)
+		if err != nil {
+			return nil, err
+		}
+		return geometry.NumGeometries(), nil
 	default:
 		return nil, nil
 	}
